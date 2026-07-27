@@ -8,6 +8,7 @@ import (
 
 	"github.com/mutedfalcontv/tv/pkg/adb"
 	"github.com/mutedfalcontv/tv/pkg/config"
+	"github.com/mutedfalcontv/tv/pkg/logcat"
 	"github.com/mutedfalcontv/tv/pkg/player"
 	"github.com/mutedfalcontv/tv/pkg/remote"
 )
@@ -22,6 +23,7 @@ var commands = []command{
 	{"adb", "ADB connection management", adbCmd},
 	{"app", "App management (list, launch, kill)", appCmd},
 	{"config", "Show configuration", configCmd},
+	{"logs", "View and filter TV logs (logcat)", logsCmd},
 	{"play", "Play a URL on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
 	{"remote", "TV remote control", remoteCmd},
@@ -295,12 +297,84 @@ func remoteCmd(args []string) {
 		fmt.Printf("Typed: %s\n", args[1])
 		return
 	}
-
 	if err := adb.EnsureConnected(cfg, r); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 	if err := remote.Press(cfg, r, cmd); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Sent key: %s\n", cmd)
+}
+
+func logsCmd(args []string) {
+	cfg := loadAdbConfig()
+	r := &adb.RealRunner{}
+	var opts logcat.Options
+
+	fs := flag.NewFlagSet("logs", flag.ExitOnError)
+	packageFlag := fs.String("p", "", "Filter by package name")
+	levelFlag := fs.String("l", "", "Log level: v/d/i/w/e/f")
+	tagFlag := fs.String("t", "", "Filter by log tag")
+	linesFlag := fs.Int("n", 0, "Number of recent lines")
+	formatFlag := fs.String("v", "", "Log format: brief, threadtime, etc.")
+	clearFlag := fs.Bool("c", false, "Clear log buffer")
+	dumpFlag := fs.Bool("d", false, "Dump and exit (no follow)")
+	fs.Parse(args)
+
+	opts.Level = *levelFlag
+	opts.Tag = *tagFlag
+	opts.Lines = *linesFlag
+	opts.Format = *formatFlag
+	opts.Clear = *clearFlag
+	opts.Dump = *dumpFlag
+
+	if err := adb.EnsureConnected(cfg, r); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if *packageFlag != "" {
+		pkg := *packageFlag
+		if !strings.Contains(pkg, ".") {
+			var err error
+			pkg, err = player.Resolve(cfg, r, pkg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		}
+		pid, err := logcat.ResolvePID(cfg, r, pkg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Filtering by %s (PID %d)\n", pkg, pid)
+	}
+
+	if opts.Clear {
+		_, err := logcat.RunOnce(cfg, r, opts)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Log buffer cleared.")
+		return
+	}
+
+	if opts.Dump || opts.Lines > 0 || opts.Level != "" || opts.Tag != "" {
+		out, err := logcat.RunOnce(cfg, r, opts)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(out)
+		return
+	}
+
+	fmt.Println("Streaming logs (Ctrl-C to stop)...")
+	if err := logcat.RunStream(cfg, opts); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
