@@ -43,14 +43,15 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`tv — Android TV CLI tools
+	fmt.Fprint(os.Stderr, `tv — Android TV CLI tools
 
 Usage:
   tv <command> [options] [args]
 
-Commands:`)
+Commands:
+`)
 	for _, c := range commands {
-		fmt.Printf("  %-15s %s\n", c.name, c.desc)
+		fmt.Fprintf(os.Stderr, "  %-15s %s\n", c.name, c.desc)
 	}
 }
 
@@ -265,6 +266,7 @@ func playCmd(args []string) {
 func loadAdbConfig() *adb.Config {
 	c, err := config.Load()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: config load failed: %v (using defaults)\n", err)
 		return &adb.Config{TVIP: "192.168.2.3:5555"}
 	}
 	return &adb.Config{TVIP: c.TVIP, DefaultPlayer: c.DefaultPlayer}

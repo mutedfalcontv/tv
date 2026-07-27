@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 )
 
+const defaultTVIP = "192.168.2.3:5555"
+
 type Config struct {
 	TVIP          string `json:"tv_ip"`
 	DefaultPlayer string `json:"default_player"`
@@ -35,7 +37,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Config{TVIP: "192.168.2.3:5555"}, nil
+			return &Config{TVIP: defaultTVIP}, nil
 		}
 		return nil, err
 	}
@@ -44,7 +46,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if cfg.TVIP == "" {
-		cfg.TVIP = "192.168.2.3:5555"
+		cfg.TVIP = defaultTVIP
 	}
 	return &cfg, nil
 }
