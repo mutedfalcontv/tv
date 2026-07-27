@@ -9,6 +9,7 @@ import (
 	"github.com/mutedfalcontv/tv/pkg/adb"
 	"github.com/mutedfalcontv/tv/pkg/config"
 	"github.com/mutedfalcontv/tv/pkg/player"
+	"github.com/mutedfalcontv/tv/pkg/remote"
 )
 
 type command struct {
@@ -23,6 +24,7 @@ var commands = []command{
 	{"config", "Show configuration", configCmd},
 	{"play", "Play a URL on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
+	{"remote", "TV remote control", remoteCmd},
 }
 
 func main() {
@@ -261,6 +263,47 @@ func playCmd(args []string) {
 		os.Exit(1)
 	}
 	fmt.Println("Done.")
+}
+
+func remoteCmd(args []string) {
+	cfg := loadAdbConfig()
+	r := &adb.RealRunner{}
+
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "Usage: tv remote <key>")
+		fmt.Fprintln(os.Stderr, "Keys: up, down, left, right, ok, home, back, menu, power,")
+		fmt.Fprintln(os.Stderr, "      input, info, subtitle, volup, voldown, mute,")
+		fmt.Fprintln(os.Stderr, "      play, pause, stop, ff, rew, next, prev,")
+		fmt.Fprintln(os.Stderr, "      chup, chdown, 0-9, type <text>")
+		os.Exit(1)
+	}
+
+	cmd := args[0]
+	if cmd == "type" {
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "Usage: tv remote type <text>")
+			os.Exit(1)
+		}
+		if err := adb.EnsureConnected(cfg, r); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := remote.Type(cfg, r, args[1]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Typed: %s\n", args[1])
+		return
+	}
+
+	if err := adb.EnsureConnected(cfg, r); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if err := remote.Press(cfg, r, cmd); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func loadAdbConfig() *adb.Config {
