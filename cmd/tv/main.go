@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,7 @@ var commands = []command{
 	{"play", "Play a URL on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
 	{"remote", "TV remote control", remoteCmd},
+	{"serve", "Start TV Remote UI web server", serveCmd},
 }
 
 func main() {
@@ -393,4 +395,21 @@ func loadAdbConfig() *adb.Config {
 		return &adb.Config{TVIP: "192.168.2.3:5555"}
 	}
 	return &adb.Config{TVIP: c.TVIP, DefaultPlayer: c.DefaultPlayer}
+}
+
+func isWindows() bool {
+	return len(os.Getenv("SYSTEMROOT")) > 0
+}
+
+func isMac() bool {
+	if len(os.Getenv("HOME")) == 0 {
+		return false
+	}
+	_, err := exec.LookPath("open")
+	return err == nil
+}
+
+func execCommand(name string, args ...string) {
+	cmd := exec.Command(name, args...)
+	cmd.Start()
 }
