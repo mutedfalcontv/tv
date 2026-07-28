@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
@@ -350,6 +351,7 @@ func logsCmd(args []string) {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+		opts.Package = strconv.Itoa(pid)
 		fmt.Printf("Filtering by %s (PID %d)\n", pkg, pid)
 	}
 

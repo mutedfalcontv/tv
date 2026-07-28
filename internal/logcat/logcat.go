@@ -2,9 +2,11 @@ package logcat
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+
 	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
@@ -38,6 +40,10 @@ func BuildArgs(opts Options) []string {
 
 	if opts.Lines > 0 {
 		args = append(args, "-t", strconv.Itoa(opts.Lines))
+	}
+
+	if opts.Package != "" {
+		args = append(args, "--pid="+opts.Package)
 	}
 
 	if opts.Tag != "" {
@@ -77,22 +83,15 @@ func ResolvePID(cfg *adb.Config, r adb.Runner, pkg string) (int, error) {
 	return 0, fmt.Errorf("process not found for package: %s", pkg)
 }
 
-func adbPath() (string, error) {
-	path, err := exec.LookPath("adb")
-	if err != nil {
-		return "", fmt.Errorf("ADB not found on PATH")
-	}
-	return path, nil
-}
-
 func RunStream(cfg *adb.Config, opts Options) error {
-	adb, err := adbPath()
+	adbPath, err := exec.LookPath("adb")
 	if err != nil {
-		return err
+		return fmt.Errorf("ADB not found on PATH")
 	}
 	logArgs := BuildArgs(opts)
-	cmd := exec.Command(adb, append([]string{"-s", cfg.TVIP, "logcat"}, logArgs...)...)
-	cmd.Stdout = nil
+	cmd := exec.Command(adbPath, append([]string{"-s", cfg.TVIP, "logcat"}, logArgs...)...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 

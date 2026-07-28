@@ -105,6 +105,20 @@ func TestResolvePID_NotFound(t *testing.T) {
 	}
 }
 
+func TestBuildArgs_WithPackage(t *testing.T) {
+	opts := Options{Package: "1234"}
+	args := BuildArgs(opts)
+	hasPID := false
+	for _, a := range args {
+		if a == "--pid=1234" {
+			hasPID = true
+		}
+	}
+	if !hasPID {
+		t.Errorf("BuildArgs() = %v, missing --pid=1234", args)
+	}
+}
+
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {
