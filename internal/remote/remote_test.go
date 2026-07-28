@@ -2,7 +2,7 @@ package remote
 
 import (
 	"testing"
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 func TestPress_NavKey(t *testing.T) {

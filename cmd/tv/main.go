@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mutedfalcontv/tv/pkg/adb"
-	"github.com/mutedfalcontv/tv/pkg/config"
-	"github.com/mutedfalcontv/tv/pkg/logcat"
-	"github.com/mutedfalcontv/tv/pkg/player"
-	"github.com/mutedfalcontv/tv/pkg/remote"
+	"github.com/mutedfalcontv/tv/internal/adb"
+	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/logcat"
+	"github.com/mutedfalcontv/tv/internal/player"
+	"github.com/mutedfalcontv/tv/internal/remote"
 )
 
 type command struct {

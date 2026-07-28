@@ -2,7 +2,7 @@ package logcat
 
 import (
 	"testing"
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 func TestBuildArgs_Default(t *testing.T) {

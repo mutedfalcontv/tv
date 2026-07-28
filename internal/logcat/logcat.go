@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 type Options struct {

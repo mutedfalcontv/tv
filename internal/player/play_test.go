@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 func TestMimeForURL_M3U8(t *testing.T) {

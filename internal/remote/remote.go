@@ -3,7 +3,7 @@ package remote
 import (
 	"fmt"
 	"sort"
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 var keyMap = map[string]string{

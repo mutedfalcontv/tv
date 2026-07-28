@@ -3,7 +3,7 @@ package player
 import (
 	"testing"
 
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 func TestDetect_Known(t *testing.T) {

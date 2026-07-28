@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mutedfalcontv/tv/pkg/adb"
+	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
 type Info struct {
