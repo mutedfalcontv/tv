@@ -3,6 +3,8 @@ package remote
 import (
 	"fmt"
 	"sort"
+	"strings"
+
 	"github.com/mutedfalcontv/tv/internal/adb"
 )
 
@@ -56,7 +58,7 @@ func Press(cfg *adb.Config, r adb.Runner, key string) error {
 }
 
 func Type(cfg *adb.Config, r adb.Runner, text string) error {
-	escaped := "'" + text + "'"
+	escaped := "'" + strings.ReplaceAll(text, "'", "'\\''") + "'"
 	_, err := r.Shell(cfg, "input text "+escaped)
 	if err != nil {
 		return fmt.Errorf("failed to input text: %w", err)

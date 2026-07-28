@@ -107,3 +107,16 @@ func TestKeys_ReturnsSorted(t *testing.T) {
 		t.Errorf("keys not sorted: %s > %s", keys[0], keys[1])
 	}
 }
+
+func TestType_WithSingleQuote(t *testing.T) {
+	m := &adb.MockRunner{}
+	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
+	err := Type(cfg, m, "it's")
+	if err != nil {
+		t.Fatalf("Type() unexpected error: %v", err)
+	}
+	want := "input text 'it'\\''s'"
+	if m.LastShellCmd != want {
+		t.Errorf("got %q, want %q", m.LastShellCmd, want)
+	}
+}
