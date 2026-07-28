@@ -1,7 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpResourceRef } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { ApiService } from '../../services/api';
+import { ApiService, TvConfig } from '../../services/api';
 
 @Component({
   selector: 'app-settings-page',
@@ -10,11 +11,13 @@ import { ApiService } from '../../services/api';
   styleUrl: './settings-page.scss',
 })
 export class SettingsPage implements OnInit {
-  private api = inject(ApiService);
-
-  readonly config = this.api.config;
+  readonly config: HttpResourceRef<TvConfig | undefined>;
   tvIP = '';
   saving = false;
+
+  constructor(private api: ApiService) {
+    this.config = this.api.config;
+  }
 
   ngOnInit() {
     const cfg = this.config.value();

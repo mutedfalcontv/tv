@@ -1,0 +1,437 @@
+{
+  "C:\\Users\\ajink\\Projects\\tv\\cmd\\tv\\main.go": {
+    "mtime": 1785263042.427717,
+    "ast_hash": "a04cce77b1c0d4cf3d687344c39c6ebc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\cmd\\tv\\serve.go": {
+    "mtime": 1785263022.6274965,
+    "ast_hash": "e68712ad54547456773832ac9dbbe824",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\adb\\runner.go": {
+    "mtime": 1785236959.917192,
+    "ast_hash": "18772b4f63206c8de0c38a4bee124cd1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\adb\\runner_test.go": {
+    "mtime": 1785236969.2384746,
+    "ast_hash": "8eca7ea14d5ddabb21f1c290285c0351",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\config\\config.go": {
+    "mtime": 1785145884.0050716,
+    "ast_hash": "7a6fbcfb445f7de03578f648c1e8f5fc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\config\\config_test.go": {
+    "mtime": 1785145884.0050716,
+    "ast_hash": "6903c88d41e966512e130175ed4485a7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\logcat\\logcat.go": {
+    "mtime": 1785237034.640138,
+    "ast_hash": "55653e2b916e1ea8bc3e005f25e8806f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\logcat\\logcat_test.go": {
+    "mtime": 1785237043.089058,
+    "ast_hash": "b3340020ea46f4f41aee76af96d54516",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\player\\detect.go": {
+    "mtime": 1785236796.2324817,
+    "ast_hash": "af6e101915dfac8cae120d1ad8bd0403",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\player\\detect_test.go": {
+    "mtime": 1785236797.1733885,
+    "ast_hash": "ec51cc748d1faad30b6fbf2a29161852",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\player\\play.go": {
+    "mtime": 1785236795.3365726,
+    "ast_hash": "af7c0ec850bef5d20d2b7b62c1a212a9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\player\\play_test.go": {
+    "mtime": 1785236797.63455,
+    "ast_hash": "a9eb0b50a6033db6e8766a437eb04569",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\remote\\remote.go": {
+    "mtime": 1785236997.56846,
+    "ast_hash": "4cd74bd4a3fc546b88897cb6a65673fa",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\remote\\remote_test.go": {
+    "mtime": 1785237006.5490277,
+    "ast_hash": "2fff633ff03a29f2c18c95b1af1b0ccd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\handlers.go": {
+    "mtime": 1785262966.6389215,
+    "ast_hash": "48123a8c54f28ffabf5e605089cf6227",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\server.go": {
+    "mtime": 1785263432.1538227,
+    "ast_hash": "3dbde20928e1dcfd09087e580b246457",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\websocket.go": {
+    "mtime": 1785262997.2770777,
+    "ast_hash": "2fbe2fb5250114648bfeb33ec015def2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\prerendered-routes.json": {
+    "mtime": 1785263587.848208,
+    "ast_hash": "d5eabf3e8b1c211a1474cb10914ca1c1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\main-4MQOCUB6.js": {
+    "mtime": 1785263587.848208,
+    "ast_hash": "ad14b864de08df611a6434d0dab9e2e2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\ngsw-worker.js": {
+    "mtime": 1785263219.222,
+    "ast_hash": "d69344dec80c4479c1a01cd0d0a7a0e2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\ngsw.json": {
+    "mtime": 1785263587.848208,
+    "ast_hash": "ba84aedd0bfb6979c7ec46dbf90e849b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\safety-worker.js": {
+    "mtime": 1785263219.225,
+    "ast_hash": "56747b008a542a447b32cf21d9a6278a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\worker-basic.min.js": {
+    "mtime": 1785263219.225,
+    "ast_hash": "56747b008a542a447b32cf21d9a6278a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\.postcssrc.json": {
+    "mtime": 1785263237.2454388,
+    "ast_hash": "0910552d06a7988426456203a1d9357e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\angular.json": {
+    "mtime": 1785263373.5110362,
+    "ast_hash": "9823c13374a00ef53c51de08b21c71f5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\ngsw-config.json": {
+    "mtime": 1785263220.4161625,
+    "ast_hash": "fe239ecbfb7cabd4579cf50b3b684bff",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\package.json": {
+    "mtime": 1785263237.2754824,
+    "ast_hash": "2eb7543c08caa78a277628812840753b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\tsconfig.app.json": {
+    "mtime": 1785263145.2353742,
+    "ast_hash": "e36d55dc3a81c35d0328a257103d6d3d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\tsconfig.json": {
+    "mtime": 1785263145.230363,
+    "ast_hash": "53bc94dc8fdca030fe291132353484a9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\tsconfig.spec.json": {
+    "mtime": 1785263145.2353742,
+    "ast_hash": "bd7d8d4dcf7261c37c6a35a892af2f35",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\.vscode\\extensions.json": {
+    "mtime": 1785263145.2453742,
+    "ast_hash": "66fd9e60d4633b6099fe02e06a7075ea",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\.vscode\\launch.json": {
+    "mtime": 1785263145.2453742,
+    "ast_hash": "430386a2f03e9d559664c196344c121b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\.vscode\\tasks.json": {
+    "mtime": 1785263145.2504008,
+    "ast_hash": "cb7ed9a56930402d9059ea5a9773d60e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\main.ts": {
+    "mtime": 1785263145.251398,
+    "ast_hash": "1289536d6d8f94242a4ffc598d094633",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\app.config.ts": {
+    "mtime": 1785263320.8261385,
+    "ast_hash": "f8456e355f15c120cdd63596434f9d29",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\app.routes.ts": {
+    "mtime": 1785263288.518993,
+    "ast_hash": "076eb6f00d5a3f0cd183a5a5510fc7f6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\app.spec.ts": {
+    "mtime": 1785263145.2694001,
+    "ast_hash": "e5e9e45a17db0503fea6fd65619f9f58",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\app.ts": {
+    "mtime": 1785263312.6804998,
+    "ast_hash": "0d4c38982a7635cd7e0d7b4e2852e14a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\apps-page\\apps-page.spec.ts": {
+    "mtime": 1785263269.241622,
+    "ast_hash": "03b73daf52e98d0eb352741586292acf",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\apps-page\\apps-page.ts": {
+    "mtime": 1785263508.5432494,
+    "ast_hash": "fff67833bb169bc32fde46c6e704679b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\logs-page\\logs-page.spec.ts": {
+    "mtime": 1785263271.4030547,
+    "ast_hash": "96d6a0f7b7f811ca931ada7a4c8f6572",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\logs-page\\logs-page.ts": {
+    "mtime": 1785263527.0902727,
+    "ast_hash": "39deb0647a28658ba407b7c6aaf382c4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\player-page\\player-page.spec.ts": {
+    "mtime": 1785263273.5790584,
+    "ast_hash": "f1071569fa208a93ec0d0c83f08fcda6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\player-page\\player-page.ts": {
+    "mtime": 1785263546.6651127,
+    "ast_hash": "0c0282e3d095d18c31213dd98411d279",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\remote-page\\remote-page.spec.ts": {
+    "mtime": 1785263267.0911856,
+    "ast_hash": "0963df6170879a13aee9c20b3d67bdb5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\remote-page\\remote-page.ts": {
+    "mtime": 1785263544.261661,
+    "ast_hash": "2e3165587c8ed24951982142c81bac66",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\settings-page\\settings-page.spec.ts": {
+    "mtime": 1785263275.6544704,
+    "ast_hash": "ad72ea4c1eec30e05c00a2949c2736a3",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\settings-page\\settings-page.ts": {
+    "mtime": 1785263549.1689084,
+    "ast_hash": "afbe84f63d571947939921cefec697dc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\services\\api.spec.ts": {
+    "mtime": 1785263253.3795033,
+    "ast_hash": "f953a4bf951e9ab58d492e27f18351d6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\services\\api.ts": {
+    "mtime": 1785263474.6092637,
+    "ast_hash": "d1c55f7c599af13852946a8f6f5bfde4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\services\\websocket.spec.ts": {
+    "mtime": 1785263259.939321,
+    "ast_hash": "c55916c611c37a19d97bdbc038c65782",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\services\\websocket.ts": {
+    "mtime": 1785263479.4702525,
+    "ast_hash": "9da9a40d4404e3d62238a3c579f8e26e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\repomix-output.md": {
+    "mtime": 1785261710.111689,
+    "ast_hash": "b436443e1960f65ab54664ab3708f3f6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\WORKFLOW.md": {
+    "mtime": 1785104627.5423765,
+    "ast_hash": "c2329708b4b1b558d3192ca6991334f7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\superpowers\\plans\\2026-07-27-tv-play.md": {
+    "mtime": 1785145883.9990637,
+    "ast_hash": "b1765f8e8060fcba494f0e01e75d9a7e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\superpowers\\plans\\2026-07-28-tv-monorepo-finalize.md": {
+    "mtime": 1785181624.893221,
+    "ast_hash": "2bfce4ad5a7ca85d1008cfbe26d1e87d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\superpowers\\plans\\2026-07-28-tv-remote-ui.md": {
+    "mtime": 1785263377.3448114,
+    "ast_hash": "7f0d9e6af981a1bba2a1d3252ff4e5a7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\superpowers\\specs\\2026-07-27-tv-logs-design.md": {
+    "mtime": 1785145884.000063,
+    "ast_hash": "8fdf99fa20b3399ab5f163c129806e33",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\superpowers\\specs\\2026-07-27-tv-remote-design.md": {
+    "mtime": 1785145884.0010614,
+    "ast_hash": "6b82179e74cc4f1d350f32e261567ac4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\docs\\superpowers\\specs\\2026-07-28-tv-remote-ui-design.md": {
+    "mtime": 1785261973.1303756,
+    "ast_hash": "590578a22cd36ae7f9bf8eb5f5c146a2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\3rdpartylicenses.txt": {
+    "mtime": 1785263587.848208,
+    "ast_hash": "27e36c5bf67d7022ed81ff06f8db96a5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\index.html": {
+    "mtime": 1785263587.848208,
+    "ast_hash": "6a6ce2ebfc0cb3f11fbb260eed82eb6c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\AGENTS.md": {
+    "mtime": 1785263145.2443726,
+    "ast_hash": "47fc7a5bb8a700ec05eeeaa113a19eba",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\README.md": {
+    "mtime": 1785263145.2289827,
+    "ast_hash": "dff9861e7cb19db51f604197c04ae301",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\index.html": {
+    "mtime": 1785263220.764246,
+    "ast_hash": "feb09f00b09dacd6cf5fba25ea211363",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\app.html": {
+    "mtime": 1785263308.0868025,
+    "ast_hash": "62da70ad7b9e73c72ba5e9adb356c6aa",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\apps-page\\apps-page.html": {
+    "mtime": 1785263541.957666,
+    "ast_hash": "0163a5d70fcf98d2e9d43a5b10df9b65",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\logs-page\\logs-page.html": {
+    "mtime": 1785263513.975571,
+    "ast_hash": "0ba1f699c685207107fd603c7bfd7de8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\player-page\\player-page.html": {
+    "mtime": 1785263518.1848493,
+    "ast_hash": "14df8e31d88c52cb0d77cb8da190a3e7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\remote-page\\remote-page.html": {
+    "mtime": 1785263506.8790083,
+    "ast_hash": "9b817ca09ad26ea7d836e8d5aa7e8076",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\src\\app\\pages\\settings-page\\settings-page.html": {
+    "mtime": 1785263521.197927,
+    "ast_hash": "1278cbe2d76a37ff48eca5ffba6ff192",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-128x128.png": {
+    "mtime": 1785263217.484,
+    "ast_hash": "51af1881513c675146ffc7e71532404c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-144x144.png": {
+    "mtime": 1785263217.485,
+    "ast_hash": "66e8778e74bcd3d576f6e8017f790e37",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-152x152.png": {
+    "mtime": 1785263217.491,
+    "ast_hash": "73e796b03c858eacba425c4d23ec68a3",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-192x192.png": {
+    "mtime": 1785263217.492,
+    "ast_hash": "fe38d9e1f1de91d8623bd412d4061850",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-384x384.png": {
+    "mtime": 1785263217.493,
+    "ast_hash": "747d0c4f12a19f93026d55a3f040d536",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-512x512.png": {
+    "mtime": 1785263217.494,
+    "ast_hash": "2cca1ff3051b0d322f30d39a37214e28",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-72x72.png": {
+    "mtime": 1785263217.495,
+    "ast_hash": "2c80564bda774d59a145f5ce05b0cd4d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\internal\\serve\\static\\browser\\icons\\icon-96x96.png": {
+    "mtime": 1785263217.495,
+    "ast_hash": "ad68075f59b101ac4943c78e1fd9198e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-128x128.png": {
+    "mtime": 1785263217.4836326,
+    "ast_hash": "51af1881513c675146ffc7e71532404c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-144x144.png": {
+    "mtime": 1785263217.4846327,
+    "ast_hash": "66e8778e74bcd3d576f6e8017f790e37",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-152x152.png": {
+    "mtime": 1785263217.4911432,
+    "ast_hash": "73e796b03c858eacba425c4d23ec68a3",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-192x192.png": {
+    "mtime": 1785263217.4921606,
+    "ast_hash": "fe38d9e1f1de91d8623bd412d4061850",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-384x384.png": {
+    "mtime": 1785263217.4931607,
+    "ast_hash": "747d0c4f12a19f93026d55a3f040d536",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-512x512.png": {
+    "mtime": 1785263217.4941611,
+    "ast_hash": "2cca1ff3051b0d322f30d39a37214e28",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-72x72.png": {
+    "mtime": 1785263217.4951575,
+    "ast_hash": "2c80564bda774d59a145f5ce05b0cd4d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ajink\\Projects\\tv\\web\\public\\icons\\icon-96x96.png": {
+    "mtime": 1785263217.4951575,
+    "ast_hash": "ad68075f59b101ac4943c78e1fd9198e",
+    "semantic_hash": ""
+  }
+}

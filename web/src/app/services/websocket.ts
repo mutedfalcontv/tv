@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, DestroyRef, inject } from '@angular/core';
+import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
+import { Subject, scan, share, takeUntil, filter as rxFilter } from 'rxjs';
 
 export interface LogFrame {
   line: string;
@@ -7,43 +9,45 @@ export interface LogFrame {
 
 @Injectable({ providedIn: 'root' })
 export class WebSocketService {
-  private ws: WebSocket | null = null;
+  private destroyRef = inject(DestroyRef);
+  private ws: WebSocketSubject<LogFrame | { type: string; [k: string]: unknown }> | null = null;
+  private disconnect$ = new Subject<void>();
+
   readonly connected = signal(false);
   readonly logs = signal<LogFrame[]>([]);
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws) return;
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${window.location.host}/ws/logs`;
-    this.ws = new WebSocket(url);
 
-    this.ws.onopen = () => {
-      this.connected.set(true);
-    };
+    this.ws = webSocket<LogFrame | { type: string; [k: string]: unknown }>({
+      url,
+      openObserver: { next: () => this.connected.set(true) },
+      closeObserver: { next: () => { this.connected.set(false); this.ws = null; } },
+    });
 
-    this.ws.onmessage = (event) => {
-      try {
-        const frame: LogFrame = JSON.parse(event.data);
-        this.logs.update((prev) => {
-          const next = [...prev, frame];
-          return next.length > 500 ? next.slice(-500) : next;
-        });
-      } catch {
-        // ignore parse errors
-      }
-    };
+    this.ws.pipe(
+      takeUntil(this.disconnect$),
+      rxFilter((msg): msg is LogFrame => 'line' in msg),
+      scan<LogFrame, LogFrame[]>((acc, frame) => {
+        const next = [...acc, frame];
+        return next.length > 500 ? next.slice(-500) : next;
+      }, []),
+      share(),
+    ).subscribe((frames) => this.logs.set(frames));
 
-    this.ws.onclose = () => {
-      this.connected.set(false);
-      this.ws = null;
-    };
+    this.destroyRef.onDestroy(() => this.disconnect());
   }
 
   disconnect() {
-    this.ws?.close();
+    this.disconnect$.next();
+    this.ws?.complete();
+    this.ws = null;
+    this.connected.set(false);
   }
 
   filter(opts: { level?: string; tag?: string; pid?: number }) {
-    this.ws?.send(JSON.stringify({ type: 'filter', ...opts }));
+    this.ws?.next({ type: 'filter', ...opts });
   }
 }

@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpResourceRef } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { ApiService } from '../../services/api';
+import { ApiService, Status } from '../../services/api';
 
 @Component({
   selector: 'app-remote-page',
@@ -10,13 +11,15 @@ import { ApiService } from '../../services/api';
   styleUrl: './remote-page.scss',
 })
 export class RemotePage {
-  private api = inject(ApiService);
-
-  readonly status = this.api.status;
-  readonly keys = this.api.keys;
-
+  readonly status: HttpResourceRef<Status | undefined>;
+  readonly keys: HttpResourceRef<string[] | undefined>;
   text = '';
   sending = false;
+
+  constructor(private api: ApiService) {
+    this.status = this.api.status;
+    this.keys = this.api.keys;
+  }
 
   press(key: string) {
     this.sending = true;
