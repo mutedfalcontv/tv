@@ -48,12 +48,11 @@ func (s *Server) Start(addr string) error {
 	mux.HandleFunc("PUT /api/config", s.handlePutConfig)
 	mux.HandleFunc("/ws/logs", s.handleWSLogs)
 
-	subFS, err := fs.Sub(angularFS, "static")
+	subFS, err := fs.Sub(angularFS, "static/browser")
 	if err != nil {
 		return err
 	}
-	fileServer := http.FileServer(http.FS(subFS))
-	mux.Handle("/", fileServer)
+	mux.Handle("/", spaFallback(http.FileServer(http.FS(subFS)), subFS))
 
 	s.server = &http.Server{
 		Addr:         addr,
@@ -80,6 +79,21 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+func spaFallback(h http.Handler, fsys fs.FS) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path != "/" {
+			_, err := fsys.Open(path[1:])
+			if err == nil {
+				h.ServeHTTP(w, r)
+				return
+			}
+		}
+		r.URL.Path = "/"
+		h.ServeHTTP(w, r)
 	})
 }
 

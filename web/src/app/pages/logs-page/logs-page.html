@@ -1,1 +1,21 @@
-<p>logs-page works!</p>
+<div class="max-w-3xl mx-auto space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold">Logs</h1>
+    <div class="flex gap-2">
+      @if (!connected()) {
+        <button (click)="ws.connect()" class="bg-blue-600 hover:bg-blue-500 rounded px-3 py-1 text-xs">Connect</button>
+      }
+      <button (click)="clear()" class="bg-gray-600 hover:bg-gray-500 rounded px-3 py-1 text-xs">Clear</button>
+    </div>
+  </div>
+
+  @if (connected()) {
+    <span class="text-green-500 text-xs">Connected</span>
+  }
+
+  <div class="bg-black rounded p-3 h-[70vh] overflow-y-auto font-mono text-xs">
+    @for (frame of logs(); track frame.timestamp) {
+      <div class="whitespace-pre-wrap break-all">{{ frame.line }}</div>
+    }
+  </div>
+</div>

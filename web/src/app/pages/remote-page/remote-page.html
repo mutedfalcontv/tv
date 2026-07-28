@@ -1,1 +1,66 @@
-<p>remote-page works!</p>
+<div class="max-w-md mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold">Remote</h1>
+    @if (status.value(); as s) {
+      <span class="text-sm" [class.text-green-500]="s.connected" [class.text-red-500]="!s.connected">
+        {{ s.connected ? 'Connected: ' + s.tv_ip : 'Disconnected' }}
+      </span>
+    }
+  </div>
+
+  <div class="grid grid-cols-3 gap-2 max-w-[200px] mx-auto">
+    <div></div>
+    <button (click)="press('up')" class="bg-gray-700 hover:bg-gray-600 rounded p-3 flex justify-center">▲</button>
+    <div></div>
+    <button (click)="press('left')" class="bg-gray-700 hover:bg-gray-600 rounded p-3 flex justify-center">◄</button>
+    <button (click)="press('ok')" class="bg-gray-700 hover:bg-gray-600 rounded p-3 font-bold">OK</button>
+    <button (click)="press('right')" class="bg-gray-700 hover:bg-gray-600 rounded p-3 flex justify-center">►</button>
+    <div></div>
+    <button (click)="press('down')" class="bg-gray-700 hover:bg-gray-600 rounded p-3 flex justify-center">▼</button>
+    <div></div>
+  </div>
+
+  <div class="flex gap-2 justify-center flex-wrap">
+    <button (click)="press('home')" class="bg-blue-600 hover:bg-blue-500 rounded px-4 py-2 text-sm">Home</button>
+    <button (click)="press('back')" class="bg-blue-600 hover:bg-blue-500 rounded px-4 py-2 text-sm">Back</button>
+    <button (click)="press('menu')" class="bg-blue-600 hover:bg-blue-500 rounded px-4 py-2 text-sm">Menu</button>
+    <button (click)="press('input')" class="bg-blue-600 hover:bg-blue-500 rounded px-4 py-2 text-sm">Input</button>
+    <button (click)="press('power')" class="bg-red-600 hover:bg-red-500 rounded px-4 py-2 text-sm">Power</button>
+  </div>
+
+  <div class="flex gap-2 justify-center flex-wrap">
+    <button (click)="press('volup')" class="bg-yellow-600 hover:bg-yellow-500 rounded px-3 py-1 text-xs">Vol+</button>
+    <button (click)="press('voldown')" class="bg-yellow-600 hover:bg-yellow-500 rounded px-3 py-1 text-xs">Vol-</button>
+    <button (click)="press('mute')" class="bg-yellow-600 hover:bg-yellow-500 rounded px-3 py-1 text-xs">Mute</button>
+    <button (click)="press('chup')" class="bg-yellow-600 hover:bg-yellow-500 rounded px-3 py-1 text-xs">Ch+</button>
+    <button (click)="press('chdown')" class="bg-yellow-600 hover:bg-yellow-500 rounded px-3 py-1 text-xs">Ch-</button>
+  </div>
+
+  <div class="flex gap-2 justify-center flex-wrap">
+    <button (click)="press('rew')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">◄◄</button>
+    <button (click)="press('play')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">Play</button>
+    <button (click)="press('pause')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">Pause</button>
+    <button (click)="press('stop')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">Stop</button>
+    <button (click)="press('ff')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">►►</button>
+    <button (click)="press('prev')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">Prev</button>
+    <button (click)="press('next')" class="bg-purple-600 hover:bg-purple-500 rounded px-3 py-1 text-xs">Next</button>
+  </div>
+
+  <div class="flex gap-2 justify-center flex-wrap">
+    <button (click)="press('0')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">0</button>
+    <button (click)="press('1')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">1</button>
+    <button (click)="press('2')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">2</button>
+    <button (click)="press('3')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">3</button>
+    <button (click)="press('4')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">4</button>
+    <button (click)="press('5')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">5</button>
+    <button (click)="press('6')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">6</button>
+    <button (click)="press('7')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">7</button>
+    <button (click)="press('8')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">8</button>
+    <button (click)="press('9')" class="bg-gray-600 hover:bg-gray-500 rounded w-10 h-10 text-sm">9</button>
+  </div>
+
+  <div class="flex gap-2">
+    <input [(ngModel)]="text" placeholder="Type text..." class="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm" />
+    <button (click)="sendText()" class="bg-green-600 hover:bg-green-500 rounded px-4 py-2 text-sm">Send</button>
+  </div>
+</div>

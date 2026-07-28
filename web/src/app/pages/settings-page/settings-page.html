@@ -1,1 +1,11 @@
-<p>settings-page works!</p>
+<div class="max-w-md mx-auto space-y-6">
+  <h1 class="text-xl font-bold">Settings</h1>
+
+  <div class="space-y-2">
+    <label class="block text-sm text-gray-400">TV IP Address</label>
+    <input [(ngModel)]="tvIP" placeholder="192.168.1.100" class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm" />
+    <button (click)="save()" [disabled]="saving" class="w-full bg-blue-600 hover:bg-blue-500 rounded px-4 py-2 text-sm disabled:opacity-50">
+      {{ saving ? 'Saving...' : 'Save' }}
+    </button>
+  </div>
+</div>

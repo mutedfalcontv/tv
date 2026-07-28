@@ -7,3 +7,5 @@ tv-windows-*.exe
 tv-linux-*
 tv-darwin-*
 .worktrees/
+node_modules/
+web/.angular/

@@ -1,10 +1,14 @@
 BINARY := tv
 GO := go
+NG := npx ng
 
-.PHONY: build test clean build-all
+.PHONY: build web test clean build-all
 
-build:
+build: web
 	$(GO) build -o $(BINARY).exe ./cmd/$(BINARY)/
+
+web:
+	cd web && $(NG) build
 
 test:
 	$(GO) test -v ./...

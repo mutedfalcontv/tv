@@ -1,1 +1,29 @@
-<p>player-page works!</p>
+<div class="max-w-lg mx-auto space-y-6">
+  <h1 class="text-xl font-bold">Player</h1>
+
+  <div class="space-y-2">
+    <input [(ngModel)]="url" placeholder="Media URL..." class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm" />
+    <button (click)="play()" [disabled]="sending" class="w-full bg-green-600 hover:bg-green-500 rounded px-4 py-2 text-sm disabled:opacity-50">
+      {{ sending ? 'Sending...' : 'Play on TV' }}
+    </button>
+  </div>
+
+  <div class="space-y-2">
+    <h2 class="text-lg font-semibold">Detected Players</h2>
+    @for (player of players.value(); track player.PackageName) {
+      <div class="flex items-center justify-between bg-gray-800 rounded px-3 py-2">
+        <div>
+          <div class="text-sm">{{ player.Name }}</div>
+          <div class="text-xs text-gray-400">{{ player.PackageName }}</div>
+        </div>
+        <div class="flex gap-1">
+          @if (config.value()?.default_player === player.PackageName) {
+            <span class="text-green-400 text-xs px-2 py-1">Default</span>
+          } @else {
+            <button (click)="setDefault(player.PackageName)" class="bg-blue-600 hover:bg-blue-500 rounded px-2 py-1 text-xs">Set Default</button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>
