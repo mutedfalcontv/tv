@@ -331,6 +331,10 @@ func logsCmd(args []string) {
 	opts.Clear = *clearFlag
 	opts.Dump = *dumpFlag
 
+	if len(fs.Args()) > 0 && fs.Args()[0] == "dump" {
+		opts.Dump = true
+	}
+
 	if err := adb.EnsureConnected(cfg, r); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

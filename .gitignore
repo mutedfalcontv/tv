@@ -2,4 +2,8 @@
 *.test
 *.out
 *.log
+tv.exe
+tv-windows-*.exe
+tv-linux-*
+tv-darwin-*
 .worktrees/

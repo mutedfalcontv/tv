@@ -15,4 +15,4 @@ build-all:
 	GOOS=darwin GOARCH=amd64 $(GO) build -o $(BINARY)-darwin-amd64 ./cmd/$(BINARY)/
 
 clean:
-	rm -f $(BINARY).exe $(BINARY)-windows-*.exe $(BINARY)-linux-* $(BINARY)-darwin-*
+	del /f /q $(BINARY).exe $(BINARY)-windows-*.exe $(BINARY)-linux-* $(BINARY)-darwin-* 2>nul || true
