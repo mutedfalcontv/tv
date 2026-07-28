@@ -134,4 +134,7 @@ func (m *MockRunner) Devices() (string, error)                    { return m.Dev
 func (m *MockRunner) Connect(ip string) (string, error)           { m.ConnectCalled = true; return m.ConnectOut, m.ConnectErr }
 func (m *MockRunner) Disconnect(ip string) (string, error)        { m.DisconnectCalled = true; return m.DisconnectOut, m.DisconnectErr }
 func (m *MockRunner) Shell(cfg *Config, cmd string) (string, error)       { m.LastShellCmd = cmd; return m.ShellOut, m.ShellErr }
-func (m *MockRunner) ShellWithStderr(cfg *Config, cmd string) (string, error) { return m.ShellWithStderrOut, m.ShellWithStderrErr }
+func (m *MockRunner) ShellWithStderr(cfg *Config, cmd string) (string, error) {
+	m.LastShellCmd = cmd
+	return m.ShellWithStderrOut, m.ShellWithStderrErr
+}

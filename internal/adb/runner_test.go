@@ -73,3 +73,18 @@ func TestEnsureConnected_ConnectFails(t *testing.T) {
 		t.Fatal("EnsureConnected() expected error, got nil")
 	}
 }
+
+func TestMockRunnerShellWithStderrCapture(t *testing.T) {
+	m := &MockRunner{ShellWithStderrOut: "output"}
+	cfg := &Config{TVIP: "192.168.2.3:5555"}
+	out, err := m.ShellWithStderr(cfg, "some command")
+	if err != nil {
+		t.Fatalf("ShellWithStderr() unexpected error: %v", err)
+	}
+	if out != "output" {
+		t.Errorf("ShellWithStderr() = %q, want %q", out, "output")
+	}
+	if m.LastShellCmd != "some command" {
+		t.Errorf("LastShellCmd = %q, want %q", m.LastShellCmd, "some command")
+	}
+}
