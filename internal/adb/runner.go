@@ -1,12 +1,12 @@
 package adb
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
+
+	"github.com/mutedfalcontv/tv/internal/config"
 )
 
 type Config struct {
@@ -90,36 +90,11 @@ func GetTVIP() string {
 	if v := os.Getenv("TV_IP"); v != "" {
 		return v
 	}
-	cfg, err := loadConfig()
+	cfg, err := config.Load()
 	if err != nil {
 		return "192.168.2.3:5555"
 	}
 	return cfg.TVIP
-}
-
-func loadConfig() (*Config, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	data, err := os.ReadFile(filepath.Join(home, ".config", "tv", "config.json"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &Config{TVIP: "192.168.2.3:5555"}, nil
-		}
-		return nil, err
-	}
-	var cfg struct {
-		TVIP          string `json:"tv_ip"`
-		DefaultPlayer string `json:"default_player"`
-	}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-	if cfg.TVIP == "" {
-		return &Config{TVIP: "192.168.2.3:5555"}, nil
-	}
-	return &Config{TVIP: cfg.TVIP, DefaultPlayer: cfg.DefaultPlayer}, nil
 }
 
 type assertAnError struct{}
