@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Service, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { httpResource } from '@angular/common/http';
 
@@ -21,9 +21,9 @@ export interface LogResult {
   logs: string;
 }
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class ApiService {
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   readonly status = httpResource<Status>(() => '/api/status');
   readonly keys = httpResource<string[]>(() => '/api/status/keys');

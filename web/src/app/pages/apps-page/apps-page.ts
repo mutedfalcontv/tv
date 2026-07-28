@@ -1,6 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpResourceRef } from '@angular/common/http';
 import { ApiService } from '../../services/api';
 
 @Component({
@@ -10,12 +9,10 @@ import { ApiService } from '../../services/api';
   styleUrl: './apps-page.scss',
 })
 export class AppsPage {
-  readonly apps: HttpResourceRef<string[] | undefined>;
-  filter = '';
+  private api = inject(ApiService);
 
-  constructor(private api: ApiService) {
-    this.apps = this.api.apps;
-  }
+  readonly apps = this.api.apps;
+  filter = '';
 
   get filteredApps(): string[] {
     const all = this.apps.value() ?? [];

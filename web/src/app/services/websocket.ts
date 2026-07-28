@@ -1,4 +1,4 @@
-import { Injectable, signal, DestroyRef, inject } from '@angular/core';
+import { Service, signal, DestroyRef, inject } from '@angular/core';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { Subject, scan, share, takeUntil, filter as rxFilter } from 'rxjs';
 
@@ -7,7 +7,7 @@ export interface LogFrame {
   timestamp: string;
 }
 
-@Injectable({ providedIn: 'root' })
+@Service()
 export class WebSocketService {
   private destroyRef = inject(DestroyRef);
   private ws: WebSocketSubject<LogFrame | { type: string; [k: string]: unknown }> | null = null;

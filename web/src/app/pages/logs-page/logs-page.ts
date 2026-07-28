@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, Signal, WritableSignal } from '@angular/core';
-import { WebSocketService, LogFrame } from '../../services/websocket';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { WebSocketService } from '../../services/websocket';
 
 @Component({
   selector: 'app-logs-page',
@@ -7,13 +7,10 @@ import { WebSocketService, LogFrame } from '../../services/websocket';
   styleUrl: './logs-page.scss',
 })
 export class LogsPage implements OnInit, OnDestroy {
-  readonly logs: WritableSignal<LogFrame[]>;
-  readonly connected: Signal<boolean>;
+  protected ws = inject(WebSocketService);
 
-  constructor(protected ws: WebSocketService) {
-    this.logs = this.ws.logs;
-    this.connected = this.ws.connected;
-  }
+  readonly logs = this.ws.logs;
+  readonly connected = this.ws.connected;
 
   ngOnInit() {
     this.ws.connect();

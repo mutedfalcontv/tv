@@ -1,8 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpResourceRef } from '@angular/common/http';
 import { finalize } from 'rxjs';
-import { ApiService, AppInfo, TvConfig } from '../../services/api';
+import { ApiService } from '../../services/api';
 
 @Component({
   selector: 'app-player-page',
@@ -11,16 +10,13 @@ import { ApiService, AppInfo, TvConfig } from '../../services/api';
   styleUrl: './player-page.scss',
 })
 export class PlayerPage {
-  readonly players: HttpResourceRef<AppInfo[] | undefined>;
-  readonly config: HttpResourceRef<TvConfig | undefined>;
+  private api = inject(ApiService);
+
+  readonly players = this.api.players;
+  readonly config = this.api.config;
   url = '';
   selectedPlayer = '';
   sending = false;
-
-  constructor(private api: ApiService) {
-    this.players = this.api.players;
-    this.config = this.api.config;
-  }
 
   setDefault(pkg: string) {
     this.api.setDefaultPlayer(pkg).subscribe(() => this.config.reload?.());
