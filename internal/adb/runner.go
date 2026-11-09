@@ -20,6 +20,7 @@ type Runner interface {
 	Disconnect(ip string) (string, error)
 	Shell(cfg *Config, cmd string) (string, error)
 	ShellWithStderr(cfg *Config, cmd string) (string, error)
+	ExecOut(cfg *Config, args ...string) ([]byte, error)
 }
 
 type RealRunner struct{}
@@ -86,6 +87,19 @@ func (r *RealRunner) ShellWithStderr(cfg *Config, cmd string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+func (r *RealRunner) ExecOut(cfg *Config, args ...string) ([]byte, error) {
+	adb, err := r.binary()
+	if err != nil {
+		return nil, err
+	}
+	full := append([]string{"-s", cfg.TVIP, "exec-out"}, args...)
+	out, err := exec.Command(adb, full...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("ADB error: %w\n%s", err, string(out))
+	}
+	return out, nil
+}
+
 func GetTVIP() string {
 	if v := os.Getenv("TV_IP"); v != "" {
 		return v
@@ -124,10 +138,13 @@ type MockRunner struct {
 	ShellErr      error
 	ShellWithStderrOut string
 	ShellWithStderrErr error
-	ConnectCalled    bool
-	DisconnectCalled bool
-	LastIntent       string
-	LastShellCmd     string
+	ExecOutOut         []byte
+	ExecOutErr         error
+	ConnectCalled      bool
+	DisconnectCalled   bool
+	LastIntent         string
+	LastShellCmd       string
+	LastExecOutArgs    []string
 }
 
 func (m *MockRunner) Devices() (string, error)                    { return m.DevicesOut, m.DevicesErr }
@@ -137,4 +154,8 @@ func (m *MockRunner) Shell(cfg *Config, cmd string) (string, error)       { m.La
 func (m *MockRunner) ShellWithStderr(cfg *Config, cmd string) (string, error) {
 	m.LastShellCmd = cmd
 	return m.ShellWithStderrOut, m.ShellWithStderrErr
+}
+func (m *MockRunner) ExecOut(cfg *Config, args ...string) ([]byte, error) {
+	m.LastExecOutArgs = args
+	return m.ExecOutOut, m.ExecOutErr
 }

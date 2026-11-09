@@ -26,6 +26,7 @@ var commands = []command{
 	{"app", "App management (list, launch, kill)", appCmd},
 	{"config", "Show configuration", configCmd},
 	{"logs", "View and filter TV logs (logcat)", logsCmd},
+	{"mcp", "Start stdio MCP server for AI agents", mcpCmd},
 	{"play", "Play a URL on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
 	{"remote", "TV remote control", remoteCmd},
