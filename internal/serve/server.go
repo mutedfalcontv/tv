@@ -44,6 +44,8 @@ func (s *Server) Start(addr string) error {
 	mux.HandleFunc("PUT /api/player/default", s.handlePlayerDefault)
 	mux.HandleFunc("POST /api/play", s.handlePlay)
 	mux.HandleFunc("GET /api/logs", s.handleLogs)
+	mux.HandleFunc("GET /api/screenshot", s.handleScreenshot)
+	mux.HandleFunc("GET /api/state", s.handleState)
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/config", s.handlePutConfig)
 	mux.HandleFunc("/ws/logs", s.handleWSLogs)

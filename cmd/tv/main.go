@@ -29,7 +29,9 @@ var commands = []command{
 	{"play", "Play a URL on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
 	{"remote", "TV remote control", remoteCmd},
+	{"screenshot", "Capture the TV screen to a PNG", screenshotCmd},
 	{"serve", "Start TV Remote UI web server", serveCmd},
+	{"state", "Show live TV state from dumpsys", stateCmd},
 }
 
 func main() {
