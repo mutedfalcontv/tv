@@ -10,8 +10,8 @@ import (
 )
 
 type Config struct {
-	TVIP          string
-	DefaultPlayer string
+	TVIP          string `json:"tv_ip"`
+	DefaultPlayer string `json:"default_player"`
 }
 
 type Runner interface {

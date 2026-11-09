@@ -1,0 +1,576 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "tv HTTP API",
+    "version": "0.1.0",
+    "description": "HTTP API served by `tv serve` and consumed by the embedded TV Remote UI. It controls an Android TV over ADB. All /api responses are JSON. Failures return {\"error\": string} with a non-2xx status."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same origin as the running `tv serve` process"
+    }
+  ],
+  "tags": [
+    { "name": "status", "description": "Connection status and remote key catalog" },
+    { "name": "remote", "description": "Remote control input" },
+    { "name": "apps", "description": "Installed application management" },
+    { "name": "players", "description": "Video player discovery and defaults" },
+    { "name": "playback", "description": "Launch media on the TV" },
+    { "name": "logs", "description": "Logcat access (REST and WebSocket)" },
+    { "name": "config", "description": "Runtime configuration" },
+    { "name": "meta", "description": "API description" }
+  ],
+  "paths": {
+    "/api/status": {
+      "get": {
+        "tags": ["status"],
+        "summary": "Connection status",
+        "description": "Attempts an ADB connection to the configured TV and reports whether it succeeded.",
+        "operationId": "getStatus",
+        "responses": {
+          "200": {
+            "description": "Current connection state",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Status" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status/keys": {
+      "get": {
+        "tags": ["status"],
+        "summary": "List remote key names",
+        "description": "Returns the sorted list of key names accepted by POST /api/remote/press.",
+        "operationId": "getKeys",
+        "responses": {
+          "200": {
+            "description": "Available key names",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/KeyList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/remote/press": {
+      "post": {
+        "tags": ["remote"],
+        "summary": "Press a remote key",
+        "operationId": "pressKey",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PressRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Key sent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/remote/type": {
+      "post": {
+        "tags": ["remote"],
+        "summary": "Type text into the TV",
+        "operationId": "typeText",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TypeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Text entered",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/apps": {
+      "get": {
+        "tags": ["apps"],
+        "summary": "List installed packages",
+        "operationId": "listApps",
+        "responses": {
+          "200": {
+            "description": "Android package names",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PackageList" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/apps/launch": {
+      "post": {
+        "tags": ["apps"],
+        "summary": "Launch an app",
+        "operationId": "launchApp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PackageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "App launched",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/apps/kill": {
+      "post": {
+        "tags": ["apps"],
+        "summary": "Force-stop an app",
+        "description": "Destructive: terminates the given package on the TV.",
+        "operationId": "killApp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PackageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "App stopped",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/players": {
+      "get": {
+        "tags": ["players"],
+        "summary": "List detected video players",
+        "description": "Detects known video player packages and common player-like packages installed on the TV. The default player is marked by the client via the config endpoint.",
+        "operationId": "listPlayers",
+        "responses": {
+          "200": {
+            "description": "Detected players, sorted by display name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Player" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/player/default": {
+      "put": {
+        "tags": ["players"],
+        "summary": "Set the default video player",
+        "description": "Resolves the supplied name or package against installed players, then persists it to ~/.config/tv/config.json.",
+        "operationId": "setDefaultPlayer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PackageRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default player updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/play": {
+      "post": {
+        "tags": ["playback"],
+        "summary": "Play a media URL",
+        "description": "Opens the URL on the TV using the requested player or the configured default player.",
+        "operationId": "play",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PlayRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Playback started",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/api/logs": {
+      "get": {
+        "tags": ["logs"],
+        "summary": "Read a snapshot of logcat",
+        "description": "Runs logcat once and returns the captured text. Filters map to standard logcat flags.",
+        "operationId": "getLogs",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "description": "Log level filter",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["v", "d", "i", "w", "e", "f", "verbose", "debug", "info", "warning", "error", "fatal"]
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Log tag filter",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "logcat -v format",
+            "required": false,
+            "schema": { "type": "string", "example": "brief" }
+          },
+          {
+            "name": "lines",
+            "in": "query",
+            "description": "Number of recent lines to return",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 }
+          },
+          {
+            "name": "pkg",
+            "in": "query",
+            "description": "Package name to resolve to a PID and filter by",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "dump",
+            "in": "query",
+            "description": "Dump the current buffer and exit (presence triggers dump mode)",
+            "required": false,
+            "schema": { "type": "boolean" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Captured log text",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LogsResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/ws/logs": {
+      "get": {
+        "tags": ["logs"],
+        "summary": "Stream logcat over WebSocket",
+        "description": "Upgrades to a WebSocket. The server pushes LogFrame objects as text frames. The client may send a FilterMessage to update level/tag/PID filters while streaming.",
+        "operationId": "streamLogs",
+        "responses": {
+          "101": {
+            "description": "Switching Protocols: WebSocket connection established"
+          },
+          "400": {
+            "description": "WebSocket upgrade failed"
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "tags": ["config"],
+        "summary": "Read runtime configuration",
+        "operationId": "getConfig",
+        "responses": {
+          "200": {
+            "description": "Current configuration",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Config" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["config"],
+        "summary": "Update configuration",
+        "description": "Updates the supplied fields and persists them to ~/.config/tv/config.json.",
+        "operationId": "updateConfig",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConfigRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration saved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ok" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "tags": ["meta"],
+        "summary": "This OpenAPI document",
+        "operationId": "getOpenAPI",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0 document",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Status": {
+        "type": "object",
+        "required": ["connected", "tv_ip"],
+        "properties": {
+          "connected": { "type": "boolean", "description": "True when ADB is connected to the TV" },
+          "tv_ip": { "type": "string", "example": "192.168.2.3:5555" }
+        }
+      },
+      "KeyList": {
+        "type": "array",
+        "description": "Sorted remote key names accepted by /api/remote/press",
+        "items": { "type": "string" },
+        "example": ["back", "chdown", "chup", "down", "ff", "home", "info", "left", "menu", "mute", "next", "ok", "pause", "play", "power", "prev", "rew", "right", "stop", "subtitle", "up", "volup", "voldown"]
+      },
+      "PackageList": {
+        "type": "array",
+        "description": "Installed Android package names",
+        "items": { "type": "string" },
+        "example": ["com.brouken.player", "org.videolan.vlc"]
+      },
+      "Player": {
+        "type": "object",
+        "required": ["PackageName", "Name"],
+        "description": "Detected video player. Field names are capitalized to match the Go struct's default JSON encoding.",
+        "properties": {
+          "PackageName": { "type": "string", "example": "com.brouken.player" },
+          "Name": { "type": "string", "example": "Just Player" }
+        }
+      },
+      "Config": {
+        "type": "object",
+        "required": ["tv_ip", "default_player"],
+        "properties": {
+          "tv_ip": { "type": "string", "example": "192.168.2.3:5555" },
+          "default_player": { "type": "string", "example": "com.brouken.player" }
+        }
+      },
+      "ConfigRequest": {
+        "type": "object",
+        "properties": {
+          "tv_ip": { "type": "string", "example": "192.168.2.3:5555" },
+          "default_player": { "type": "string", "example": "com.brouken.player" }
+        }
+      },
+      "PressRequest": {
+        "type": "object",
+        "required": ["key"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Key name from GET /api/status/keys",
+            "example": "home"
+          }
+        }
+      },
+      "TypeRequest": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": { "type": "string", "example": "hello world" }
+        }
+      },
+      "PackageRequest": {
+        "type": "object",
+        "required": ["package"],
+        "properties": {
+          "package": {
+            "type": "string",
+            "description": "Android package name, or a player display name for /api/player/default",
+            "example": "com.brouken.player"
+          }
+        }
+      },
+      "PlayRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Media URL to open",
+            "example": "https://example.com/video.m3u8"
+          },
+          "player": {
+            "type": "string",
+            "description": "Player package name. Defaults to the configured default player when omitted.",
+            "example": "com.brouken.player"
+          }
+        }
+      },
+      "LogsResponse": {
+        "type": "object",
+        "required": ["logs"],
+        "properties": {
+          "logs": { "type": "string", "description": "Captured logcat text" }
+        }
+      },
+      "LogFrame": {
+        "type": "object",
+        "required": ["line", "timestamp"],
+        "description": "A single log line pushed over /ws/logs",
+        "properties": {
+          "line": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "FilterMessage": {
+        "type": "object",
+        "required": ["type"],
+        "description": "Client-to-server message sent over /ws/logs to update filters",
+        "properties": {
+          "type": { "type": "string", "enum": ["filter"] },
+          "level": { "type": "string" },
+          "tag": { "type": "string" },
+          "pid": { "type": "integer" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string", "example": "ADB not found on PATH" }
+        }
+      },
+      "Ok": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": {
+          "ok": { "type": "boolean", "example": true }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request body, unknown key, or invalid argument",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "ADB command or server-side operation failed",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Could not connect to the TV over ADB",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  }
+}

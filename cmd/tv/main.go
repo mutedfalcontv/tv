@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/help"
 	"github.com/mutedfalcontv/tv/internal/logcat"
 	"github.com/mutedfalcontv/tv/internal/player"
 	"github.com/mutedfalcontv/tv/internal/remote"
@@ -34,23 +36,54 @@ var commands = []command{
 
 func main() {
 	if len(os.Args) < 2 {
-		printUsage()
+		printUsage(os.Stderr)
 		os.Exit(1)
 	}
 	sub := os.Args[1]
+	rest := os.Args[2:]
+
+	switch sub {
+	case "help", "-h", "--help":
+		if hasFlag(rest, "--json") {
+			printHelpJSON()
+			return
+		}
+		printUsage(os.Stdout)
+		return
+	}
+
 	for _, c := range commands {
 		if c.name == sub {
-			c.run(os.Args[2:])
+			c.run(rest)
 			return
 		}
 	}
 	fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", sub)
-	printUsage()
+	printUsage(os.Stderr)
 	os.Exit(1)
 }
 
-func printUsage() {
-	fmt.Fprint(os.Stderr, `tv — Android TV CLI tools
+func hasFlag(args []string, name string) bool {
+	for _, a := range args {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
+func printHelpJSON() {
+	data, err := help.JSON()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	os.Stdout.Write(data)
+	fmt.Println()
+}
+
+func printUsage(w io.Writer) {
+	fmt.Fprint(w, `tv — Android TV CLI tools
 
 Usage:
   tv <command> [options] [args]
@@ -58,8 +91,10 @@ Usage:
 Commands:
 `)
 	for _, c := range commands {
-		fmt.Fprintf(os.Stderr, "  %-15s %s\n", c.name, c.desc)
+		fmt.Fprintf(w, "  %-15s %s\n", c.name, c.desc)
 	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Run 'tv help --json' for machine-readable help.")
 }
 
 func adbCmd(args []string) {
