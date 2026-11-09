@@ -1,8 +1,8 @@
 package logcat
 
 import (
-	"testing"
 	"github.com/mutedfalcontv/tv/internal/adb"
+	"testing"
 )
 
 func TestBuildArgs_Default(t *testing.T) {
@@ -117,6 +117,47 @@ func TestBuildArgs_WithPackage(t *testing.T) {
 	if !hasPID {
 		t.Errorf("BuildArgs() = %v, missing --pid=1234", args)
 	}
+}
+
+// TestOnceArgs_AlwaysDumps is the regression test for the hanging GET /api/logs
+// bug: RunOnce built args without -d when Dump was false, so `adb shell logcat`
+// streamed forever. onceArgs (the RunOnce path) must always include -d, so
+// BuildArgs must emit -d whenever the options reach it from RunOnce.
+func TestOnceArgs_AlwaysDumps(t *testing.T) {
+	tests := []struct {
+		name string
+		opts Options
+	}{
+		{"empty", Options{}},
+		{"level", Options{Level: "error"}},
+		{"tag", Options{Tag: "ActivityManager"}},
+		{"lines", Options{Lines: 100}},
+		{"package", Options{Package: "1234"}},
+		{"format", Options{Format: "threadtime"}},
+		{"dump-explicit", Options{Dump: true}},
+		{"combined", Options{Level: "info", Tag: "VLC", Lines: 50, Package: "42"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := onceArgs(tt.opts)
+			if !hasPair(args, "-d") {
+				t.Fatalf("onceArgs(%+v) = %v, missing -d (would stream forever)", tt.opts, args)
+			}
+			// -d must survive alongside a bounded -t line count too.
+			if tt.opts.Lines > 0 && !hasPair(args, "-t") {
+				t.Fatalf("onceArgs(%+v) = %v, missing -t", tt.opts, args)
+			}
+		})
+	}
+}
+
+func hasPair(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(s, substr string) bool {

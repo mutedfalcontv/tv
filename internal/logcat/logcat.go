@@ -95,8 +95,16 @@ func RunStream(cfg *adb.Config, opts Options) error {
 	return cmd.Run()
 }
 
+// onceArgs returns the logcat arguments for a bounded, non-streaming read.
+// It always sets Dump so the underlying `adb shell logcat` exits instead of
+// streaming forever (RunOnce is used by one-shot callers such as GET /api/logs).
+func onceArgs(opts Options) []string {
+	opts.Dump = true
+	return BuildArgs(opts)
+}
+
 func RunOnce(cfg *adb.Config, r adb.Runner, opts Options) (string, error) {
-	logArgs := BuildArgs(opts)
+	logArgs := onceArgs(opts)
 	cmd := "logcat " + strings.Join(logArgs, " ")
 	return r.ShellWithStderr(cfg, cmd)
 }
