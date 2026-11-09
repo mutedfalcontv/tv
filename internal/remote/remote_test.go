@@ -1,8 +1,8 @@
 package remote
 
 import (
-	"testing"
 	"github.com/mutedfalcontv/tv/internal/adb"
+	"testing"
 )
 
 func TestPress_NavKey(t *testing.T) {
@@ -95,6 +95,34 @@ func TestType_WithSpaces(t *testing.T) {
 	}
 	if m.LastShellCmd != "input text 'search term'" {
 		t.Errorf("got %q, want %q", m.LastShellCmd, "input text 'search term'")
+	}
+}
+
+func TestKeycode_Known(t *testing.T) {
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"up", "KEYCODE_DPAD_UP"},
+		{"home", "KEYCODE_HOME"},
+		{"5", "KEYCODE_5"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got, ok := Keycode(tt.key)
+			if !ok {
+				t.Fatalf("Keycode(%q) ok = false, want true", tt.key)
+			}
+			if got != tt.want {
+				t.Errorf("Keycode(%q) = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKeycode_Unknown(t *testing.T) {
+	if _, ok := Keycode("nonexistent"); ok {
+		t.Error("Keycode(nonexistent) ok = true, want false")
 	}
 }
 

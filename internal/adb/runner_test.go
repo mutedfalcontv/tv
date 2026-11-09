@@ -88,3 +88,20 @@ func TestMockRunnerShellWithStderrCapture(t *testing.T) {
 		t.Errorf("LastShellCmd = %q, want %q", m.LastShellCmd, "some command")
 	}
 }
+
+func TestMockRunnerInstallCapture(t *testing.T) {
+	m := &MockRunner{InstallOut: "Success"}
+	out, err := m.Install("app.apk")
+	if err != nil {
+		t.Fatalf("Install() unexpected error: %v", err)
+	}
+	if out != "Success" {
+		t.Errorf("Install() = %q, want %q", out, "Success")
+	}
+	if !m.InstallCalled {
+		t.Error("InstallCalled = false, want true")
+	}
+	if m.LastInstallPath != "app.apk" {
+		t.Errorf("LastInstallPath = %q, want %q", m.LastInstallPath, "app.apk")
+	}
+}
