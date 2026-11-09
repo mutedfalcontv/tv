@@ -45,8 +45,14 @@ var keyMap = map[string]string{
 	"9":        "KEYCODE_9",
 }
 
-func Press(cfg *adb.Config, r adb.Runner, key string) error {
+// Keycode returns the Android keycode for a CLI key name.
+func Keycode(key string) (string, bool) {
 	keycode, ok := keyMap[key]
+	return keycode, ok
+}
+
+func Press(cfg *adb.Config, r adb.Runner, key string) error {
+	keycode, ok := Keycode(key)
 	if !ok {
 		return fmt.Errorf("unknown key: %s. Available keys: %v", key, Keys())
 	}

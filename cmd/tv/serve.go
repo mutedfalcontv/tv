@@ -2,28 +2,29 @@ package main
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"fmt"
-	"os"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/output"
 	"github.com/mutedfalcontv/tv/internal/serve"
 )
 
 func serveCmd(args []string) {
-	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	fs := newFlagSet("serve")
 	port := fs.Int("port", 8080, "HTTP server port")
 	host := fs.String("host", "0.0.0.0", "HTTP server host")
 	noOpen := fs.Bool("no-open", false, "Don't open browser")
-	fs.Parse(args)
+	parseFlags(fs, args)
 
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: %v (using defaults)\n", err)
+		output.Warn(fmt.Errorf("%v (using defaults)", err))
 		cfg = &config.Config{TVIP: "192.168.2.3:5555"}
 	}
 
@@ -36,20 +37,24 @@ func serveCmd(args []string) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if !*noOpen {
-		url := fmt.Sprintf("http://localhost:%d", *port)
+	url := fmt.Sprintf("http://localhost:%d", *port)
+	if output.JSON {
+		output.Emit(output.ServeResult{URL: url, Host: *host, Port: *port})
+	}
+	if !*noOpen && !noInput && !output.JSON {
 		openBrowser(url)
 	}
 
 	go func() {
-		if err := server.Start(addr); err != nil {
-			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-			stop()
+		if err := server.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			output.FailWith(fmt.Sprintf("Server error: %v", err), err)
 		}
 	}()
 
 	<-ctx.Done()
-	fmt.Println("\nShutting down...")
+	if !output.JSON {
+		fmt.Println("\nShutting down...")
+	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	server.Shutdown(shutdownCtx)

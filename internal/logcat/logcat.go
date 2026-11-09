@@ -2,6 +2,7 @@ package logcat
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -84,14 +85,19 @@ func ResolvePID(cfg *adb.Config, r adb.Runner, pkg string) (int, error) {
 }
 
 func RunStream(cfg *adb.Config, opts Options) error {
+	return RunStreamTo(cfg, opts, os.Stdout, os.Stderr)
+}
+
+// RunStreamTo streams logcat output to the supplied writers.
+func RunStreamTo(cfg *adb.Config, opts Options, stdout, stderr io.Writer) error {
 	adbPath, err := exec.LookPath("adb")
 	if err != nil {
 		return fmt.Errorf("ADB not found on PATH")
 	}
 	logArgs := BuildArgs(opts)
 	cmd := exec.Command(adbPath, append([]string{"-s", cfg.TVIP, "logcat"}, logArgs...)...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	return cmd.Run()
 }
 

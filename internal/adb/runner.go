@@ -18,6 +18,7 @@ type Runner interface {
 	Devices() (string, error)
 	Connect(ip string) (string, error)
 	Disconnect(ip string) (string, error)
+	Install(apkPath string) (string, error)
 	Shell(cfg *Config, cmd string) (string, error)
 	ShellWithStderr(cfg *Config, cmd string) (string, error)
 }
@@ -59,6 +60,15 @@ func (r *RealRunner) Disconnect(ip string) (string, error) {
 		return "", err
 	}
 	out, err := exec.Command(adb, "disconnect", ip).CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+func (r *RealRunner) Install(apkPath string) (string, error) {
+	adb, err := r.binary()
+	if err != nil {
+		return "", err
+	}
+	out, err := exec.Command(adb, "install", "-r", apkPath).CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -114,26 +124,44 @@ func EnsureConnected(cfg *Config, r Runner) error {
 }
 
 type MockRunner struct {
-	DevicesOut    string
-	DevicesErr    error
-	ConnectOut    string
-	ConnectErr    error
-	DisconnectOut string
-	DisconnectErr error
-	ShellOut      string
-	ShellErr      error
+	DevicesOut         string
+	DevicesErr         error
+	ConnectOut         string
+	ConnectErr         error
+	DisconnectOut      string
+	DisconnectErr      error
+	InstallOut         string
+	InstallErr         error
+	ShellOut           string
+	ShellErr           error
 	ShellWithStderrOut string
 	ShellWithStderrErr error
-	ConnectCalled    bool
-	DisconnectCalled bool
-	LastIntent       string
-	LastShellCmd     string
+	ConnectCalled      bool
+	DisconnectCalled   bool
+	InstallCalled      bool
+	LastInstallPath    string
+	LastIntent         string
+	LastShellCmd       string
 }
 
-func (m *MockRunner) Devices() (string, error)                    { return m.DevicesOut, m.DevicesErr }
-func (m *MockRunner) Connect(ip string) (string, error)           { m.ConnectCalled = true; return m.ConnectOut, m.ConnectErr }
-func (m *MockRunner) Disconnect(ip string) (string, error)        { m.DisconnectCalled = true; return m.DisconnectOut, m.DisconnectErr }
-func (m *MockRunner) Shell(cfg *Config, cmd string) (string, error)       { m.LastShellCmd = cmd; return m.ShellOut, m.ShellErr }
+func (m *MockRunner) Devices() (string, error) { return m.DevicesOut, m.DevicesErr }
+func (m *MockRunner) Connect(ip string) (string, error) {
+	m.ConnectCalled = true
+	return m.ConnectOut, m.ConnectErr
+}
+func (m *MockRunner) Disconnect(ip string) (string, error) {
+	m.DisconnectCalled = true
+	return m.DisconnectOut, m.DisconnectErr
+}
+func (m *MockRunner) Install(apkPath string) (string, error) {
+	m.InstallCalled = true
+	m.LastInstallPath = apkPath
+	return m.InstallOut, m.InstallErr
+}
+func (m *MockRunner) Shell(cfg *Config, cmd string) (string, error) {
+	m.LastShellCmd = cmd
+	return m.ShellOut, m.ShellErr
+}
 func (m *MockRunner) ShellWithStderr(cfg *Config, cmd string) (string, error) {
 	m.LastShellCmd = cmd
 	return m.ShellWithStderrOut, m.ShellWithStderrErr
