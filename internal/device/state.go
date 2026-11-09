@@ -26,12 +26,12 @@ type State struct {
 // device is connected. Individual dumpsys failures leave their fields at zero
 // values rather than failing the whole call.
 func GetState(cfg *adb.Config, r adb.Runner) State {
-	st := State{TVIP: cfg.TVIP}
+	st := State{TVIP: cfg.Serial()}
 	devices, err := r.Devices()
 	if err != nil {
 		return st
 	}
-	st.Connected = adbConnected(devices, cfg.TVIP)
+	st.Connected = adbConnected(devices, cfg.Serial())
 	if !st.Connected {
 		return st
 	}

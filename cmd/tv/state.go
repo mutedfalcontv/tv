@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/device"
+	"github.com/mutedfalcontv/tv/internal/output"
 )
 
 func stateCmd(args []string) {
@@ -15,35 +14,25 @@ func stateCmd(args []string) {
 	r := &adb.RealRunner{}
 
 	fs := flag.NewFlagSet("state", flag.ExitOnError)
-	jsonOut := fs.Bool("json", false, "Emit JSON state")
-	ip := fs.String("ip", cfg.TVIP, "TV IP address")
 	fs.Parse(args)
-	cfg.TVIP = *ip
 
 	st := device.GetState(cfg, r)
 
-	if *jsonOut {
-		enc := json.NewEncoder(os.Stdout)
-		if err := enc.Encode(st); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+	output.Result(st, func() {
+		fmt.Printf("TV:         %s\n", st.TVIP)
+		fmt.Printf("Connected:  %s\n", yesNo(st.Connected))
+		if !st.Connected {
+			return
 		}
-		return
-	}
-
-	fmt.Printf("TV:         %s\n", st.TVIP)
-	fmt.Printf("Connected:  %s\n", yesNo(st.Connected))
-	if !st.Connected {
-		return
-	}
-	if st.ForegroundApp != "" {
-		fmt.Printf("Foreground: %s (%s)\n", st.ForegroundApp, st.ForegroundActivity)
-	} else {
-		fmt.Println("Foreground: (unknown)")
-	}
-	fmt.Printf("Volume:     %d\n", st.Volume)
-	fmt.Printf("Muted:      %s\n", yesNo(st.Muted))
-	fmt.Printf("Screen:     %s (%s)\n", onOff(st.ScreenOn), st.Wakefulness)
+		if st.ForegroundApp != "" {
+			fmt.Printf("Foreground: %s (%s)\n", st.ForegroundApp, st.ForegroundActivity)
+		} else {
+			fmt.Println("Foreground: (unknown)")
+		}
+		fmt.Printf("Volume:     %d\n", st.Volume)
+		fmt.Printf("Muted:      %s\n", yesNo(st.Muted))
+		fmt.Printf("Screen:     %s (%s)\n", onOff(st.ScreenOn), st.Wakefulness)
+	})
 }
 
 func yesNo(v bool) string {

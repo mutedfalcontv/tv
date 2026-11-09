@@ -105,8 +105,10 @@ Start the UI + API: `tv serve --port 8080 --no-open`. The OpenAPI 3.0 contract i
 | PUT | `/api/player/default` | `{ "package": "Just Player" }` | `{ "ok": true }` |
 | POST | `/api/play` | `{ "url": "https://...", "player": "com.brouken.player" }` | `{ "ok": true }` |
 | GET | `/api/logs` | `?level=&tag=&format=&lines=&pkg=&dump=` | `{ "logs": "..." }` |
-| GET | `/api/config` | — | `{ "tv_ip": "...", "default_player": "..." }` |
-| PUT | `/api/config` | `{ "tv_ip"?, "default_player"? }` | `{ "ok": true }` |
+| GET | `/api/screenshot` | — | PNG image (`image/png`) |
+| GET | `/api/state` | — | `{ "connected": bool, "tv_ip": "...", "foreground_app"?, "volume": int, "muted": bool, "screen_on": bool, "wakefulness"? }` |
+| GET | `/api/config` | — | `{ "tv_ip": "...", "device"?, "ip"?, "default_player": "..." }` |
+| PUT | `/api/config` | `{ "tv_ip"?, "device"?, "ip"?, "default_player"? }` | `{ "ok": true }` |
 | GET | `/api/openapi.json` | — | OpenAPI document |
 | WS | `/ws/logs` | — | frames `{ "line": "...", "timestamp": "..." }` |
 
@@ -124,12 +126,20 @@ curl -s -X POST localhost:8080/api/remote/press -d '{"key":"home"}'
 curl -s -X POST localhost:8080/api/play -d '{"url":"https://example.com/v.mp4"}'
 ```
 
+## MCP server (for AI agents)
+
+`tv mcp` starts a stdio MCP server. Tools: `tv_status`, `tv_connect`, `tv_disconnect`,
+`tv_list_apps`, `tv_launch_app`, `tv_kill_app`, `tv_press_key`, `tv_type_text`, `tv_play`,
+`tv_players`, `tv_logs` (bounded snapshot), `tv_screenshot`. Register it in an MCP client as a
+stdio command, e.g. `{ "command": "tv", "args": ["mcp"] }`. It honours `--device`/`--ip` and
+`-timeout`.
+
 ## Safety
 
 - **Destructive:** `tv app kill` and `POST /api/apps/kill` force-stop a package. Confirm intent
   before running against a real device.
 - **State-changing:** `tv player default` and `PUT /api/config` persist changes to
   `~/.config/tv/config.json`.
-- **Network exposure:** `tv serve` binds `0.0.0.0:8080` by default with no authentication and
-  open CORS. Use `--host 127.0.0.1` on untrusted networks, or treat it as LAN-only.
-- There is no MCP server yet; use the CLI or HTTP API.
+- **Network exposure:** `tv serve` binds `127.0.0.1:8080` by default. It has no authentication
+  unless `--token` is set; CORS reflects only loopback/configured origins. For LAN exposure use
+  `--host 0.0.0.0 --token <secret>`.

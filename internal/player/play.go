@@ -17,10 +17,10 @@ var mimeByExt = map[string]string{
 }
 
 var playerActivity = map[string]string{
-	"com.brouken.player":         ".PlayerActivity",
-	"org.videolan.vlc":           ".gui.video.VideoPlayerActivity",
-	"app.mpvnova.player":         ".PlayerActivity",
-	"com.mxtech.videoplayer.ad":  ".ActivityMedia",
+	"com.brouken.player":        ".PlayerActivity",
+	"org.videolan.vlc":          ".gui.video.VideoPlayerActivity",
+	"app.mpvnova.player":        ".PlayerActivity",
+	"com.mxtech.videoplayer.ad": ".ActivityMedia",
 }
 
 func MimeForURL(url string) string {
@@ -48,6 +48,9 @@ func ActivityForPlayer(pkg string) string {
 }
 
 func PlayOnTV(cfg *adb.Config, r adb.Runner, playerPkg, url string) error {
+	if err := adb.ValidatePackage(playerPkg); err != nil {
+		return err
+	}
 	mime := MimeForURL(url)
 	activity := ActivityForPlayer(playerPkg)
 	quotedURL := EscapeURLForShell(url)

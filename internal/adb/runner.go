@@ -2,10 +2,12 @@ package adb
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/mutedfalcontv/tv/internal/config"
 )
@@ -62,14 +64,17 @@ type Runner interface {
 	MDNSServices() (string, error)
 	Connect(ip string) (string, error)
 	Disconnect(ip string) (string, error)
-	Install(apkPath string) (string, error)
+	Install(cfg *Config, apkPath string) (string, error)
 	Pair(addr, code string) (string, error)
 	Shell(cfg *Config, cmd string) (string, error)
 	ShellWithStderr(cfg *Config, cmd string) (string, error)
 	ExecOut(cfg *Config, args ...string) ([]byte, error)
 }
 
-type RealRunner struct{}
+type RealRunner struct {
+	// Timeout, when non-zero, bounds each adb invocation.
+	Timeout time.Duration
+}
 
 func (r *RealRunner) binary() (string, error) {
 	path, err := exec.LookPath("adb")
@@ -79,12 +84,24 @@ func (r *RealRunner) binary() (string, error) {
 	return path, nil
 }
 
+// command returns an exec.Cmd bound to r.Timeout, plus a cancel function the
+// caller must defer. A zero Timeout means no deadline.
+func (r *RealRunner) command(name string, args ...string) (*exec.Cmd, context.CancelFunc) {
+	if r.Timeout > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+		return exec.CommandContext(ctx, name, args...), cancel
+	}
+	return exec.Command(name, args...), func() {}
+}
+
 func (r *RealRunner) Devices() (string, error) {
 	adb, err := r.binary()
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "devices", "-l").Output()
+	c, cancel := r.command(adb, "devices", "-l")
+	defer cancel()
+	out, err := c.Output()
 	if err != nil {
 		return "", fmt.Errorf("adb devices: %w", err)
 	}
@@ -96,7 +113,9 @@ func (r *RealRunner) MDNSServices() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "mdns", "services").CombinedOutput()
+	c, cancel := r.command(adb, "mdns", "services")
+	defer cancel()
+	out, err := c.CombinedOutput()
 	if err != nil {
 		return string(out), fmt.Errorf("adb mdns services: %w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -108,7 +127,9 @@ func (r *RealRunner) Connect(ip string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "connect", ip).CombinedOutput()
+	c, cancel := r.command(adb, "connect", ip)
+	defer cancel()
+	out, err := c.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -117,16 +138,20 @@ func (r *RealRunner) Disconnect(ip string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "disconnect", ip).CombinedOutput()
+	c, cancel := r.command(adb, "disconnect", ip)
+	defer cancel()
+	out, err := c.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
-func (r *RealRunner) Install(apkPath string) (string, error) {
+func (r *RealRunner) Install(cfg *Config, apkPath string) (string, error) {
 	adb, err := r.binary()
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "install", "-r", apkPath).CombinedOutput()
+	c, cancel := r.command(adb, "-s", cfg.Serial(), "install", "-r", apkPath)
+	defer cancel()
+	out, err := c.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -135,7 +160,9 @@ func (r *RealRunner) Pair(addr, code string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "pair", addr, code).CombinedOutput()
+	c, cancel := r.command(adb, "pair", addr, code)
+	defer cancel()
+	out, err := c.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -144,7 +171,9 @@ func (r *RealRunner) Shell(cfg *Config, cmd string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "-s", cfg.Serial(), "shell", cmd).Output()
+	c, cancel := r.command(adb, "-s", cfg.Serial(), "shell", cmd)
+	defer cancel()
+	out, err := c.Output()
 	if err != nil {
 		return "", fmt.Errorf("ADB error: %w\n%s", err, string(out))
 	}
@@ -156,7 +185,9 @@ func (r *RealRunner) ShellWithStderr(cfg *Config, cmd string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command(adb, "-s", cfg.Serial(), "shell", cmd).CombinedOutput()
+	c, cancel := r.command(adb, "-s", cfg.Serial(), "shell", cmd)
+	defer cancel()
+	out, err := c.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("ADB error: %w\n%s", err, string(out))
 	}
@@ -174,7 +205,9 @@ func (r *RealRunner) ExecOut(cfg *Config, args ...string) ([]byte, error) {
 		return nil, err
 	}
 	full := append([]string{"-s", cfg.Serial(), "exec-out"}, args...)
-	out, err := exec.Command(adb, full...).Output()
+	c, cancel := r.command(adb, full...)
+	defer cancel()
+	out, err := c.Output()
 	if err != nil {
 		return nil, fmt.Errorf("ADB exec-out error: %w", err)
 	}
@@ -289,25 +322,58 @@ func EnsureConnected(cfg *Config, r Runner) error {
 			return nil
 		}
 	}
-	_, err = r.Connect(cfg.ConnectTarget())
-	return err
+	out, err = r.Connect(cfg.ConnectTarget())
+	if err != nil {
+		return err
+	}
+	if connectFailed(out) {
+		return fmt.Errorf("adb connect failed: %s", strings.TrimSpace(out))
+	}
+	return nil
+}
+
+// connectFailed reports whether adb connect output indicates a failure. adb
+// often exits 0 even when it cannot connect, so callers must check the text.
+func connectFailed(out string) bool {
+	low := strings.ToLower(out)
+	for _, marker := range []string{"failed", "cannot", "unable", "refused", "error"} {
+		if strings.Contains(low, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidatePackage reports whether pkg is a safe Android package name.
+func ValidatePackage(pkg string) error {
+	if pkg == "" {
+		return fmt.Errorf("package must not be empty")
+	}
+	for _, r := range pkg {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '.', r == '_':
+		default:
+			return fmt.Errorf("invalid package name %q", pkg)
+		}
+	}
+	return nil
 }
 
 type MockRunner struct {
-	DevicesOut         string
-	DevicesErr         error
-	MDNSServicesOut    string
-	MDNSServicesErr    error
-	ConnectOut         string
-	ConnectErr         error
-	DisconnectOut      string
-	DisconnectErr      error
-	InstallOut         string
-	InstallErr         error
-	PairOut            string
-	PairErr            error
-	ShellOut           string
-	ShellErr           error
+	DevicesOut      string
+	DevicesErr      error
+	MDNSServicesOut string
+	MDNSServicesErr error
+	ConnectOut      string
+	ConnectErr      error
+	DisconnectOut   string
+	DisconnectErr   error
+	InstallOut      string
+	InstallErr      error
+	PairOut         string
+	PairErr         error
+	ShellOut        string
+	ShellErr        error
 	// ShellResponses lets a test return a different result per shell command.
 	// Commands not present fall back to ShellOut/ShellErr.
 	ShellResponses     map[string]string
@@ -345,7 +411,7 @@ func (m *MockRunner) Disconnect(ip string) (string, error) {
 	return m.DisconnectOut, m.DisconnectErr
 }
 
-func (m *MockRunner) Install(apkPath string) (string, error) {
+func (m *MockRunner) Install(cfg *Config, apkPath string) (string, error) {
 	m.InstallCalled = true
 	m.LastInstallPath = apkPath
 	return m.InstallOut, m.InstallErr

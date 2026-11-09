@@ -28,7 +28,11 @@ func TestTree_ContainsAllCommands(t *testing.T) {
 	for _, c := range doc.Commands {
 		got[c.Name] = true
 	}
-	for _, want := range []string{"adb", "app", "config", "logs", "play", "player", "remote", "serve", "help"} {
+	for _, want := range []string{
+		"adb", "app", "config", "devices", "discover", "help", "install",
+		"logs", "mcp", "pair", "play", "player", "remote", "screenshot",
+		"serve", "state",
+	} {
 		if !got[want] {
 			t.Errorf("missing command: %s", want)
 		}

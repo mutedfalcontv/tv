@@ -8,7 +8,7 @@ import (
 )
 
 // Version is reported by the JSON help document.
-const Version = "0.1.0"
+const Version = "1.0.0"
 
 // Flag describes a command-line flag.
 type Flag struct {
@@ -41,6 +41,7 @@ type Document struct {
 	Name        string    `json:"name"`
 	Version     string    `json:"version"`
 	Description string    `json:"description"`
+	GlobalFlags []Flag    `json:"global_flags,omitempty"`
 	Commands    []Command `json:"commands"`
 }
 
@@ -50,14 +51,21 @@ func Tree() Document {
 		Name:    "tv",
 		Version: Version,
 		Description: "Android TV CLI and HTTP API. Controls an Android TV over ADB " +
-			"(connect, manage apps, send remote keys, type text, play URLs, read logs).",
+			"(connect, manage apps, send remote keys, type text, play URLs, read logs, " +
+			"capture screenshots, inspect state).",
+		GlobalFlags: []Flag{
+			{Name: "--json", Type: "bool", Default: "false", Description: "Emit exactly one JSON value on stdout; errors are JSON on stderr"},
+			{Name: "--no-input", Type: "bool", Default: "false", Description: "Never prompt (automatic when stdin is not a TTY)"},
+			{Name: "--device", Type: "string", Description: "Target a specific ADB device serial (adb -s <serial>)"},
+			{Name: "--ip", Type: "string", Description: "Target a specific device IP address"},
+		},
 		Commands: []Command{
 			{
 				Name:        "adb",
 				Description: "ADB connection management",
-				Usage:       "tv adb <connect|disconnect>",
+				Usage:       "tv adb <connect|disconnect> [address]",
 				Subcommands: []Command{
-					{Name: "connect", Description: "Connect to the configured TV", Usage: "tv adb connect"},
+					{Name: "connect", Description: "Connect to the configured TV (or an explicit address)", Usage: "tv adb connect [address]"},
 					{Name: "disconnect", Description: "Disconnect from the configured TV", Usage: "tv adb disconnect"},
 				},
 			},
@@ -83,8 +91,27 @@ func Tree() Document {
 			},
 			{
 				Name:        "config",
-				Description: "Show configuration (TV IP and default player)",
+				Description: "Show configuration (TV IP/device, default player)",
 				Usage:       "tv config",
+			},
+			{
+				Name:        "devices",
+				Description: "List connected ADB devices",
+				Usage:       "tv devices",
+			},
+			{
+				Name:        "discover",
+				Description: "Discover TVs via mDNS (wireless debugging)",
+				Usage:       "tv discover [options]",
+				Flags: []Flag{
+					{Name: "-kind", Type: "string", Description: "Filter by kind: pairing, connect, legacy"},
+				},
+			},
+			{
+				Name:        "install",
+				Description: "Install an APK on the TV",
+				Usage:       "tv install <apk-file>",
+				Arguments:   []Argument{{Name: "apk-file", Description: "Path to the APK to install", Required: true}},
 			},
 			{
 				Name:        "logs",
@@ -104,24 +131,42 @@ func Tree() Document {
 				},
 			},
 			{
-				Name:        "play",
-				Description: "Play a URL on TV using a video player",
-				Usage:       "tv play [options] <url>",
+				Name:        "mcp",
+				Description: "Start a stdio MCP server exposing TV tools to AI agents",
+				Usage:       "tv mcp [options]",
+				Flags: []Flag{
+					{Name: "-timeout", Type: "duration", Default: "30s", Description: "Per-ADB-call timeout"},
+				},
+			},
+			{
+				Name:        "pair",
+				Description: "Pair with a TV over wireless ADB (Android 11+)",
+				Usage:       "tv pair <ip:port> <code>",
 				Arguments: []Argument{
-					{Name: "url", Description: "Media URL to open (stream or file)", Required: true},
+					{Name: "address", Description: "Pairing address from `tv discover`", Required: true},
+					{Name: "code", Description: "6-digit pairing code shown on the TV", Required: true},
+				},
+				Flags: []Flag{
+					{Name: "-connect", Type: "string", Description: "Address to connect to after pairing (defaults to the pairing address)"},
+				},
+			},
+			{
+				Name:        "play",
+				Description: "Play a URL or local file on TV using a video player",
+				Usage:       "tv play [options] <url|local-file>",
+				Arguments: []Argument{
+					{Name: "url", Description: "Media URL or local file path", Required: true},
 				},
 				Flags: []Flag{
 					{Name: "-player", Type: "string", Description: "Player name or package name (defaults to configured default player)"},
-					{Name: "-ip", Type: "string", Description: "TV IP address (defaults to configured TV IP)"},
+					{Name: "-serve-forever", Type: "bool", Default: "false", Description: "Serve a local file until interrupted"},
+					{Name: "-serve-timeout", Type: "duration", Default: "0", Description: "Serve a local file for this duration"},
 				},
 			},
 			{
 				Name:        "player",
 				Description: "List installed video players or set the default one",
-				Usage:       "tv player <list|default> [options] [name]",
-				Flags: []Flag{
-					{Name: "-ip", Type: "string", Description: "TV IP address (defaults to configured TV IP)"},
-				},
+				Usage:       "tv player <list|default> [name]",
 				Subcommands: []Command{
 					{Name: "list", Description: "List detected video players and mark the default", Usage: "tv player list"},
 					{
@@ -155,14 +200,29 @@ func Tree() Document {
 				},
 			},
 			{
+				Name:        "screenshot",
+				Description: "Capture the TV screen to a PNG",
+				Usage:       "tv screenshot [options]",
+				Flags: []Flag{
+					{Name: "-o", Type: "string", Description: "Output PNG path (default ./screencap-<unix-ts>.png)"},
+				},
+			},
+			{
 				Name:        "serve",
 				Description: "Start the TV Remote UI web server and HTTP API",
 				Usage:       "tv serve [options]",
 				Flags: []Flag{
 					{Name: "-port", Type: "int", Default: "8080", Description: "HTTP server port"},
-					{Name: "-host", Type: "string", Default: "0.0.0.0", Description: "HTTP server host"},
+					{Name: "-host", Type: "string", Default: "127.0.0.1", Description: "HTTP server host (use 0.0.0.0 to expose)"},
+					{Name: "-token", Type: "string", Description: "Require this bearer token on /api/* and /ws/*"},
+					{Name: "-cors", Type: "string", Description: "Comma-separated origins allowed for CORS"},
 					{Name: "-no-open", Type: "bool", Default: "false", Description: "Do not open the browser on start"},
 				},
+			},
+			{
+				Name:        "state",
+				Description: "Show live TV state from dumpsys (foreground app, volume, screen)",
+				Usage:       "tv state",
 			},
 			{
 				Name:        "help",

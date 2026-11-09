@@ -51,7 +51,12 @@ Notes:
 | --- | --- |
 | `cmd/tv/` | CLI entry point. `main.go` defines the command table, dispatches subcommands, and handles `help`. `serve.go` implements `tv serve` (flags, signals, browser open). |
 | `internal/adb/` | ADB abstraction. `Runner` interface + `RealRunner` (executes `adb`) + `MockRunner` (test double). Also `Config{TVIP, DefaultPlayer}` and `EnsureConnected`. |
-| `internal/config/` | Persisted user config at `~/.config/tv/config.json` (JSON: `tv_ip`, `default_player`). `Load`, `Save`, default TV IP. |
+| `internal/config/` | Persisted user config at `~/.config/tv/config.json` (JSON: `tv_ip`, `device`, `ip`, `default_player`, `token`, `cors_origins`). `Load`, `Save`, default TV IP. |
+| `internal/device/` | Screenshot capture (`CaptureScreenshot`, `NormalizePNG`, `WriteScreenshot`) and live state (`GetState`). |
+| `internal/discovery/` | mDNS wireless-debugging discovery behind `tv discover`. |
+| `internal/mcp/` | stdio MCP server exposing TV tools to AI agents (`tv mcp`). |
+| `internal/output/` | JSON/human output helpers used by the CLI (`--json`). |
+| `internal/localserve/` | Ephemeral HTTP server used by `tv play <local-file>`. |
 | `internal/player/` | Video player detection (`Detect`, `Resolve`) and media playback via an `am start` intent (`PlayOnTV`, MIME guessing). |
 | `internal/remote/` | Remote key map (`Press`), text input (`Type`), and `Keys()`. |
 | `internal/logcat/` | logcat argument construction (`BuildArgs`), PID resolution, one-shot and streaming capture. |
@@ -103,7 +108,10 @@ tv serve --port 8080 --no-open # start UI + API
 
 ## Using the HTTP API
 
-Start it with `tv serve`. All responses are JSON. CORS is open (`*`). Current routes:
+Start it with `tv serve`. All responses are JSON. It binds `127.0.0.1` by default with no auth;
+when `--token` is set, send `Authorization: Bearer <token>` (the bundled UI receives a
+`tv_token` cookie, and WebSocket clients may use `?token=`). CORS reflects only loopback and
+configured origins, and cross-origin mutations are rejected. Current routes:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -118,8 +126,10 @@ Start it with `tv serve`. All responses are JSON. CORS is open (`*`). Current ro
 | PUT | `/api/player/default` | `{package}` (name or package) |
 | POST | `/api/play` | `{url, player?}` |
 | GET | `/api/logs` | query: `level`, `tag`, `format`, `lines`, `pkg`, `dump` |
-| GET | `/api/config` | `{tv_ip, default_player}` |
-| PUT | `/api/config` | `{tv_ip?, default_player?}` |
+| GET | `/api/screenshot` | PNG screenshot of the TV (`image/png`) |
+| GET | `/api/state` | `{connected, tv_ip, foreground_app?, foreground_activity?, volume, muted, screen_on, wakefulness?}` |
+| GET | `/api/config` | `{tv_ip, device?, ip?, default_player}` |
+| PUT | `/api/config` | `{tv_ip?, device?, ip?, default_player?}` |
 | GET | `/api/openapi.json` | OpenAPI 3.0 description of this API |
 | WS | `/ws/logs` | stream `{line, timestamp}` frames; send `{type:"filter", level?, tag?, pid?}` |
 
@@ -134,17 +144,19 @@ curl -s -X POST localhost:8080/api/play -d '{"url":"https://example.com/v.mp4"}'
 The canonical machine-readable contract is `GET /api/openapi.json` (hand-written, embedded from
 `internal/serve/openapi.json`). Keep it in sync with `server.go`.
 
-## MCP server (future)
+## MCP server
 
-There is currently no MCP server. If one is added, it should expose the same capabilities as
-the CLI/HTTP API (status, apps, remote, play, logs, config) and should be documented here plus
-in `skills/tv/SKILL.md`. Reuse `internal/adb.Runner` and the existing packages rather than
-shelling out to the CLI wherever practical.
+`tv mcp` starts a stdio MCP server for AI agents. It exposes `tv_status`, `tv_connect`,
+`tv_disconnect`, `tv_list_apps`, `tv_launch_app`, `tv_kill_app`, `tv_press_key`,
+`tv_type_text`, `tv_play`, `tv_players`, `tv_logs` (bounded snapshot; never streams), and
+`tv_screenshot`. Tools reuse `internal/adb.Runner`, honour `--device`/`--ip`, and `-timeout`
+bounds each ADB call.
 
 ## Safety
 
 - `tv app kill`, `/api/apps/kill`, and player/config changes mutate the TV or persisted state.
   Confirm intent before running them against a real device.
-- `tv serve` binds `0.0.0.0:8080` by default and has no authentication and open CORS. Treat it
-  as trusted-LAN only; use `--host 127.0.0.1` when exposure is a concern.
+- `tv serve` binds `127.0.0.1:8080` by default. It has no authentication unless `--token` is
+  set; CORS reflects only loopback/configured origins, and cross-origin mutations are rejected.
+  Use `--host 0.0.0.0 --token <secret>` when exposing it on a network.
 - Do not commit secrets or machine-specific config. `~/.config/tv/config.json` is outside the repo.

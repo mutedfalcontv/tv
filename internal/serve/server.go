@@ -76,7 +76,7 @@ func (s *Server) Start(addr string) error {
 	if err != nil {
 		return err
 	}
-	mux.Handle("/", spaFallback(http.FileServer(http.FS(subFS)), subFS))
+	mux.Handle("/", s.spaFallback(http.FileServer(http.FS(subFS)), subFS))
 
 	s.server = &http.Server{
 		Addr:         addr,
@@ -107,6 +107,16 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		got := r.Header.Get("Authorization")
+		if got == "" {
+			if t := r.URL.Query().Get("token"); t != "" {
+				got = "Bearer " + t
+			}
+		}
+		if got == "" {
+			if c, err := r.Cookie("tv_token"); err == nil {
+				got = "Bearer " + c.Value
+			}
+		}
 		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
 			jsonError(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -135,6 +145,21 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		// Reject cross-origin state-changing requests instead of merely
+		// withholding CORS headers (a no-preflight POST would otherwise run).
+		if origin != "" && !s.originAllowed(origin) &&
+			r.Method != http.MethodGet && r.Method != http.MethodHead {
+			jsonError(w, "cross-origin request rejected", http.StatusForbidden)
+			return
+		}
+		// Mutations must be JSON so a cross-site text/plain form cannot drive
+		// the API without a CORS preflight.
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+			if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+				jsonError(w, "content-type must be application/json", http.StatusUnsupportedMediaType)
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -156,7 +181,16 @@ func (s *Server) checkOrigin(r *http.Request) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(u.Host, r.Host)
+	if !strings.EqualFold(u.Host, r.Host) {
+		return false
+	}
+	// Allow same-origin only for localhost or a literal IP host. A DNS name
+	// here is the DNS-rebinding case (an attacker domain resolving to loopback).
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	return net.ParseIP(host) != nil
 }
 
 func (s *Server) originAllowed(origin string) bool {
@@ -182,7 +216,7 @@ func isLoopbackOrigin(origin string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func spaFallback(h http.Handler, fsys fs.FS) http.Handler {
+func (s *Server) spaFallback(h http.Handler, fsys fs.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if path != "/" {
@@ -191,6 +225,17 @@ func spaFallback(h http.Handler, fsys fs.FS) http.Handler {
 				h.ServeHTTP(w, r)
 				return
 			}
+		}
+		// Hand the same-origin SPA the token as an HttpOnly cookie so the
+		// bundled UI (fetch and WebSocket) authenticates automatically.
+		if s.token != "" {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "tv_token",
+				Value:    s.token,
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteStrictMode,
+			})
 		}
 		r.URL.Path = "/"
 		h.ServeHTTP(w, r)

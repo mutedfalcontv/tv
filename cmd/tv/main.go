@@ -195,15 +195,6 @@ func parseFlags(fs *flag.FlagSet, args []string) {
 	}
 }
 
-func hasFlag(args []string, name string) bool {
-	for _, a := range args {
-		if a == name {
-			return true
-		}
-	}
-	return false
-}
-
 func printHelpJSON() {
 	data, err := help.JSON()
 	if err != nil {
@@ -345,9 +336,7 @@ func installCmd(args []string) {
 	r := &adb.RealRunner{}
 
 	fs := newFlagSet("install")
-	ip := fs.String("ip", cfg.TVIP, "TV IP address")
 	parseFlags(fs, args)
-	cfg.TVIP = *ip
 
 	remaining := fs.Args()
 	if len(remaining) < 1 {
@@ -360,7 +349,7 @@ func installCmd(args []string) {
 	if err := adb.EnsureConnected(cfg, r); err != nil {
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
-	out, err := r.Install(apk)
+	out, err := r.Install(cfg, apk)
 	if err != nil {
 		output.FailWith(fmt.Sprintf("Error installing %s: %v", apk, err), fmt.Errorf("failed to install %s: %w", apk, err))
 	}
@@ -401,9 +390,7 @@ func playerCmd(args []string) {
 	r := &adb.RealRunner{}
 
 	fs := newFlagSet("player")
-	ip := fs.String("ip", cfg.TVIP, "TV IP address")
 	parseFlags(fs, args)
-	cfg.TVIP = *ip
 
 	remaining := fs.Args()
 	if len(remaining) < 1 {
@@ -468,11 +455,9 @@ func playCmd(args []string) {
 
 	fs := newFlagSet("play")
 	playerFlag := fs.String("player", cfg.DefaultPlayer, "Player name or package name")
-	ip := fs.String("ip", cfg.TVIP, "TV IP address")
 	serveForever := fs.Bool("serve-forever", false, "Keep serving a local file until interrupted")
 	serveTimeout := fs.Duration("serve-timeout", 0, "Serve a local file for this duration, e.g. 30m or 1h")
 	parseFlags(fs, args)
-	cfg.TVIP = *ip
 
 	remaining := fs.Args()
 	if len(remaining) < 1 {
@@ -843,11 +828,6 @@ func connectFailed(out string) bool {
 		}
 	}
 	return false
-}
-
-func addDeviceFlags(fs *flag.FlagSet, cfg *adb.Config) {
-	fs.StringVar(&cfg.Device, "device", cfg.Device, "Target device serial (adb -s <serial>)")
-	fs.StringVar(&cfg.IP, "ip", cfg.IP, "Target device IP address")
 }
 
 func newAdbConfig(c *config.Config) *adb.Config {

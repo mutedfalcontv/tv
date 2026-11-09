@@ -91,7 +91,7 @@ func TestMockRunnerShellWithStderrCapture(t *testing.T) {
 
 func TestMockRunnerInstallCapture(t *testing.T) {
 	m := &MockRunner{InstallOut: "Success"}
-	out, err := m.Install("app.apk")
+	out, err := m.Install(&Config{TVIP: "192.168.2.3:5555"}, "app.apk")
 	if err != nil {
 		t.Fatalf("Install() unexpected error: %v", err)
 	}

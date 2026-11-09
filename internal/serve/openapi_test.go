@@ -37,6 +37,8 @@ func TestOpenAPIDocumentsRoutes(t *testing.T) {
 		"/api/player/default",
 		"/api/play",
 		"/api/logs",
+		"/api/screenshot",
+		"/api/state",
 		"/api/config",
 		"/api/openapi.json",
 		"/ws/logs",

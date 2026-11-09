@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/device"
+	"github.com/mutedfalcontv/tv/internal/output"
 )
 
 type screenshotResult struct {
@@ -21,20 +20,15 @@ func screenshotCmd(args []string) {
 
 	fs := flag.NewFlagSet("screenshot", flag.ExitOnError)
 	outPath := fs.String("o", "", "Output PNG path (default ./screencap-<unix-ts>.png)")
-	jsonOut := fs.Bool("json", false, "Emit JSON {path, bytes}")
-	ip := fs.String("ip", cfg.TVIP, "TV IP address")
 	fs.Parse(args)
-	cfg.TVIP = *ip
 
 	if err := adb.EnsureConnected(cfg, r); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 
 	data, err := device.CaptureScreenshot(cfg, r)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 
 	path := *outPath
@@ -42,17 +36,10 @@ func screenshotCmd(args []string) {
 		path = device.DefaultScreenshotName()
 	}
 	if err := device.WriteScreenshot(path, data); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing screenshot: %v\n", err)
-		os.Exit(1)
+		output.FailWith(fmt.Sprintf("Error writing screenshot: %v", err), err)
 	}
 
-	if *jsonOut {
-		enc := json.NewEncoder(os.Stdout)
-		if err := enc.Encode(screenshotResult{Path: path, Bytes: len(data)}); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-	fmt.Printf("Saved screenshot: %s (%d bytes)\n", path, len(data))
+	output.Result(screenshotResult{Path: path, Bytes: len(data)}, func() {
+		fmt.Printf("Saved screenshot: %s (%d bytes)\n", path, len(data))
+	})
 }

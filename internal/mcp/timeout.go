@@ -63,8 +63,8 @@ func (t *timeoutRunner) MDNSServices() (string, error) {
 	return callWithTimeout(t.timeout, t.inner.MDNSServices)
 }
 
-func (t *timeoutRunner) Install(apkPath string) (string, error) {
-	return callWithTimeout(t.timeout, func() (string, error) { return t.inner.Install(apkPath) })
+func (t *timeoutRunner) Install(cfg *adb.Config, apkPath string) (string, error) {
+	return callWithTimeout(t.timeout, func() (string, error) { return t.inner.Install(cfg, apkPath) })
 }
 
 func (t *timeoutRunner) Pair(addr, code string) (string, error) {

@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
+	"github.com/mutedfalcontv/tv/internal/device"
 	"github.com/mutedfalcontv/tv/internal/logcat"
 	"github.com/mutedfalcontv/tv/internal/player"
 	"github.com/mutedfalcontv/tv/internal/remote"
@@ -193,27 +193,27 @@ func (s *Server) handleStatus(_ context.Context, _ *mcpsdk.CallToolRequest, _ st
 	connected := adb.EnsureConnected(s.cfg, r) == nil
 	return nil, statusOut{
 		Connected:     connected,
-		TVIP:          s.cfg.TVIP,
+		TVIP:          s.cfg.Serial(),
 		DefaultPlayer: s.cfg.DefaultPlayer,
 	}, nil
 }
 
 func (s *Server) handleConnect(_ context.Context, _ *mcpsdk.CallToolRequest, _ connectIn) (*mcpsdk.CallToolResult, connectOut, error) {
 	r := s.runnerWithTimeout()
-	msg, err := r.Connect(s.cfg.TVIP)
+	msg, err := r.Connect(s.cfg.ConnectTarget())
 	if err != nil {
 		return nil, connectOut{}, fmt.Errorf("connect failed: %w", err)
 	}
-	return nil, connectOut{OK: true, Message: msg, TVIP: s.cfg.TVIP}, nil
+	return nil, connectOut{OK: true, Message: msg, TVIP: s.cfg.Serial()}, nil
 }
 
 func (s *Server) handleDisconnect(_ context.Context, _ *mcpsdk.CallToolRequest, _ connectIn) (*mcpsdk.CallToolResult, connectOut, error) {
 	r := s.runnerWithTimeout()
-	msg, err := r.Disconnect(s.cfg.TVIP)
+	msg, err := r.Disconnect(s.cfg.ConnectTarget())
 	if err != nil {
 		return nil, connectOut{}, fmt.Errorf("disconnect failed: %w", err)
 	}
-	return nil, connectOut{OK: true, Message: msg, TVIP: s.cfg.TVIP}, nil
+	return nil, connectOut{OK: true, Message: msg, TVIP: s.cfg.Serial()}, nil
 }
 
 func (s *Server) handleListApps(_ context.Context, _ *mcpsdk.CallToolRequest, _ listAppsIn) (*mcpsdk.CallToolResult, listAppsOut, error) {
@@ -304,6 +304,9 @@ func (s *Server) handlePlay(_ context.Context, _ *mcpsdk.CallToolRequest, in pla
 		}
 		pkg = resolved
 	}
+	if err := adb.ValidatePackage(pkg); err != nil {
+		return nil, playOut{}, err
+	}
 	if err := player.PlayOnTV(s.cfg, r, pkg, in.URL); err != nil {
 		return nil, playOut{}, err
 	}
@@ -352,16 +355,16 @@ func (s *Server) handleScreenshot(_ context.Context, _ *mcpsdk.CallToolRequest, 
 	if err := adb.EnsureConnected(s.cfg, r); err != nil {
 		return nil, screenshotOut{}, err
 	}
-	data, err := r.ExecOut(s.cfg, "screencap", "-p")
+	data, err := device.CaptureScreenshot(s.cfg, r)
 	if err != nil {
-		return nil, screenshotOut{}, fmt.Errorf("screencap failed: %w", err)
+		return nil, screenshotOut{}, err
 	}
 	if len(data) == 0 {
 		return nil, screenshotOut{}, fmt.Errorf("screencap returned no data")
 	}
 	out := screenshotOut{MimeType: "image/png", Bytes: len(data)}
 	if in.Path != "" {
-		if err := os.WriteFile(in.Path, data, 0o644); err != nil {
+		if err := device.WriteScreenshot(in.Path, data); err != nil {
 			return nil, screenshotOut{}, fmt.Errorf("writing screenshot: %w", err)
 		}
 		out.Path = in.Path
@@ -386,8 +389,11 @@ func normalizeLines(n int) (int, bool) {
 func parsePackages(out string) []string {
 	var pkgs []string
 	for _, line := range strings.Split(out, "\n") {
-		pkg := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "package:"))
-		if pkg != "" {
+		pkg, ok := strings.CutPrefix(strings.TrimSpace(line), "package:")
+		if !ok {
+			continue
+		}
+		if pkg = strings.TrimSpace(pkg); pkg != "" {
 			pkgs = append(pkgs, pkg)
 		}
 	}

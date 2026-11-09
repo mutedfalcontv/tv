@@ -83,6 +83,20 @@ func TestParseGlobalFlags(t *testing.T) {
 	}
 }
 
+func TestParseGlobalFlags_DeviceAndIP(t *testing.T) {
+	globalDevice, globalIP = "", ""
+	args, opts := parseGlobalFlags([]string{"--device", "SER123", "app", "list", "--ip", "192.168.1.5:5555"})
+	if !reflect.DeepEqual(args, []string{"app", "list"}) {
+		t.Errorf("args = %v, want [app list]", args)
+	}
+	if opts.Device != "SER123" || globalDevice != "SER123" {
+		t.Errorf("device = %q/%q, want SER123", opts.Device, globalDevice)
+	}
+	if opts.IP != "192.168.1.5:5555" || globalIP != "192.168.1.5:5555" {
+		t.Errorf("ip = %q/%q, want 192.168.1.5:5555", opts.IP, globalIP)
+	}
+}
+
 func TestParsePackages(t *testing.T) {
 	tests := []struct {
 		name string

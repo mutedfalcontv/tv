@@ -216,7 +216,7 @@ func TestNormalizeLines(t *testing.T) {
 
 func TestHandleScreenshot_SavesFile(t *testing.T) {
 	m := connectedMock()
-	png := []byte{0x89, 0x50, 0x4e, 0x47}
+	png := append([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}, []byte("payload")...)
 	m.ExecOutOut = png
 	s := newTestServer(m)
 	path := filepath.Join(t.TempDir(), "shot.png")
@@ -242,7 +242,7 @@ func TestHandleScreenshot_SavesFile(t *testing.T) {
 
 func TestHandleScreenshot_Base64(t *testing.T) {
 	m := connectedMock()
-	png := []byte{1, 2, 3}
+	png := append([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}, []byte("payload")...)
 	m.ExecOutOut = png
 	s := newTestServer(m)
 
