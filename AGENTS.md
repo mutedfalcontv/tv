@@ -137,8 +137,8 @@ Example:
 
 ```sh
 curl -s localhost:8080/api/status
-curl -s -X POST localhost:8080/api/remote/press -d '{"key":"home"}'
-curl -s -X POST localhost:8080/api/play -d '{"url":"https://example.com/v.mp4"}'
+curl -s -X POST localhost:8080/api/remote/press -H 'Content-Type: application/json' -d '{"key":"home"}'
+curl -s -X POST localhost:8080/api/play -H 'Content-Type: application/json' -d '{"url":"https://example.com/v.mp4"}'
 ```
 
 The canonical machine-readable contract is `GET /api/openapi.json` (hand-written, embedded from
