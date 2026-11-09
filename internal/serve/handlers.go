@@ -8,6 +8,7 @@ import (
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/device"
 	"github.com/mutedfalcontv/tv/internal/logcat"
 	"github.com/mutedfalcontv/tv/internal/player"
 	"github.com/mutedfalcontv/tv/internal/remote"
@@ -32,12 +33,14 @@ type playRequest struct {
 
 type configRequest struct {
 	TVIP          string `json:"tv_ip,omitempty"`
+	Device        string `json:"device,omitempty"`
+	IP            string `json:"ip,omitempty"`
 	DefaultPlayer string `json:"default_player,omitempty"`
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	err := adb.EnsureConnected(s.config, s.runner)
-	status := Status{Connected: err == nil, TVIP: s.config.TVIP}
+	status := Status{Connected: err == nil, TVIP: s.config.Serial()}
 	jsonOK(w, status)
 }
 
@@ -92,9 +95,11 @@ func (s *Server) handleApps(w http.ResponseWriter, r *http.Request) {
 	lines := strings.Split(out, "\n")
 	var pkgs []string
 	for _, line := range lines {
-		pkg := strings.TrimPrefix(line, "package:")
-		pkg = strings.TrimSpace(pkg)
-		if pkg != "" {
+		pkg, ok := strings.CutPrefix(strings.TrimSpace(line), "package:")
+		if !ok {
+			continue
+		}
+		if pkg = strings.TrimSpace(pkg); pkg != "" {
 			pkgs = append(pkgs, pkg)
 		}
 	}
@@ -105,6 +110,10 @@ func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
 	var req packageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := adb.ValidatePackage(req.Package); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := adb.EnsureConnected(s.config, s.runner); err != nil {
@@ -123,6 +132,10 @@ func (s *Server) handleKill(w http.ResponseWriter, r *http.Request) {
 	var req packageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := adb.ValidatePackage(req.Package); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if err := adb.EnsureConnected(s.config, s.runner); err != nil {
@@ -188,6 +201,10 @@ func (s *Server) handlePlay(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "no player specified and no default player set", http.StatusBadRequest)
 		return
 	}
+	if err := adb.ValidatePackage(playerPkg); err != nil {
+		jsonError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := player.PlayOnTV(s.config, s.runner, playerPkg, req.URL); err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -207,7 +224,19 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 			opts.Lines = n
 		}
 	}
+	if opts.Tag != "" && !safeLogcatField(opts.Tag) {
+		jsonError(w, "invalid tag", http.StatusBadRequest)
+		return
+	}
+	if opts.Format != "" && !safeLogcatField(opts.Format) {
+		jsonError(w, "invalid format", http.StatusBadRequest)
+		return
+	}
 	if pkg := q.Get("pkg"); pkg != "" {
+		if err := adb.ValidatePackage(pkg); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		pid, err := logcat.ResolvePID(s.config, s.runner, pkg)
 		if err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
@@ -245,6 +274,14 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		cfg.TVIP = req.TVIP
 		s.config.TVIP = req.TVIP
 	}
+	if req.Device != "" {
+		cfg.Device = req.Device
+		s.config.Device = req.Device
+	}
+	if req.IP != "" {
+		cfg.IP = req.IP
+		s.config.IP = req.IP
+	}
 	if req.DefaultPlayer != "" {
 		cfg.DefaultPlayer = req.DefaultPlayer
 		s.config.DefaultPlayer = req.DefaultPlayer
@@ -254,4 +291,39 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
+	if err := adb.EnsureConnected(s.config, s.runner); err != nil {
+		jsonError(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	data, err := device.CaptureScreenshot(s.config, s.runner)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
+	jsonOK(w, device.GetState(s.config, s.runner))
+}
+
+// safeLogcatField reports whether v is safe to pass to logcat as a tag or
+// format value without shell interpretation.
+func safeLogcatField(v string) bool {
+	for _, r := range v {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
+			r == '_', r == '-', r == '.', r == ':':
+		default:
+			return false
+		}
+	}
+	return true
 }

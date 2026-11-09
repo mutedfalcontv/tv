@@ -2,6 +2,7 @@ package logcat
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -84,19 +85,32 @@ func ResolvePID(cfg *adb.Config, r adb.Runner, pkg string) (int, error) {
 }
 
 func RunStream(cfg *adb.Config, opts Options) error {
+	return RunStreamTo(cfg, opts, os.Stdout, os.Stderr)
+}
+
+// RunStreamTo streams logcat output to the supplied writers.
+func RunStreamTo(cfg *adb.Config, opts Options, stdout, stderr io.Writer) error {
 	adbPath, err := exec.LookPath("adb")
 	if err != nil {
 		return fmt.Errorf("ADB not found on PATH")
 	}
 	logArgs := BuildArgs(opts)
-	cmd := exec.Command(adbPath, append([]string{"-s", cfg.TVIP, "logcat"}, logArgs...)...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd := exec.Command(adbPath, append([]string{"-s", cfg.Serial(), "logcat"}, logArgs...)...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	return cmd.Run()
 }
 
+// onceArgs returns the logcat arguments for a bounded, non-streaming read.
+// It always sets Dump so the underlying `adb shell logcat` exits instead of
+// streaming forever (RunOnce is used by one-shot callers such as GET /api/logs).
+func onceArgs(opts Options) []string {
+	opts.Dump = true
+	return BuildArgs(opts)
+}
+
 func RunOnce(cfg *adb.Config, r adb.Runner, opts Options) (string, error) {
-	logArgs := BuildArgs(opts)
+	logArgs := onceArgs(opts)
 	cmd := "logcat " + strings.Join(logArgs, " ")
 	return r.ShellWithStderr(cfg, cmd)
 }
