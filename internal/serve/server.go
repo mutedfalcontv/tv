@@ -147,7 +147,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		}
 		// Reject cross-origin state-changing requests instead of merely
 		// withholding CORS headers (a no-preflight POST would otherwise run).
-		if origin != "" && !s.originAllowed(origin) &&
+		if origin != "" && !s.trustedOrigin(r, origin) &&
 			r.Method != http.MethodGet && r.Method != http.MethodHead {
 			jsonError(w, "cross-origin request rejected", http.StatusForbidden)
 			return
@@ -174,23 +174,24 @@ func (s *Server) checkOrigin(r *http.Request) bool {
 	if origin == "" {
 		return true
 	}
+	return s.trustedOrigin(r, origin)
+}
+
+// trustedOrigin reports whether origin may drive this server. It accepts
+// configured origins, loopback, and same-origin requests whose host is an IP
+// literal or localhost. A same-host DNS name is the DNS-rebinding case (an
+// attacker domain resolving to this server) and is rejected; add it to
+// corsOrigins (--cors) if a hostname is genuinely used.
+func (s *Server) trustedOrigin(r *http.Request, origin string) bool {
 	if s.originAllowed(origin) {
 		return true
 	}
 	u, err := url.Parse(origin)
-	if err != nil {
+	if err != nil || !strings.EqualFold(u.Host, r.Host) {
 		return false
 	}
-	if !strings.EqualFold(u.Host, r.Host) {
-		return false
-	}
-	// Allow same-origin only for localhost or a literal IP host. A DNS name
-	// here is the DNS-rebinding case (an attacker domain resolving to loopback).
 	host := u.Hostname()
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	return net.ParseIP(host) != nil
+	return strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil
 }
 
 func (s *Server) originAllowed(origin string) bool {

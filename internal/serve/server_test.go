@@ -3,6 +3,7 @@ package serve
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -108,6 +109,37 @@ func TestCORS_ConfiguredOriginAndPreflight(t *testing.T) {
 	}
 }
 
+func TestCORS_AllowsSameOriginIPMutation(t *testing.T) {
+	s := New(nil, nil, Options{})
+	h := s.corsMiddleware(okHandler())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/remote/press", strings.NewReader(`{"key":"home"}`))
+	req.Host = "192.168.1.10:8080"
+	req.Header.Set("Origin", "http://192.168.1.10:8080")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("same-origin IP mutation status = %d, want 200", rec.Code)
+	}
+}
+
+func TestCORS_RejectsCrossOriginMutation(t *testing.T) {
+	s := New(nil, nil, Options{})
+	h := s.corsMiddleware(okHandler())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/remote/press", strings.NewReader(`{}`))
+	req.Header.Set("Origin", "http://evil.example")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin mutation status = %d, want 403", rec.Code)
+	}
+}
+
 func TestIsLoopbackOrigin(t *testing.T) {
 	tests := map[string]bool{
 		"http://localhost:8080":  true,
@@ -135,6 +167,7 @@ func TestCheckOrigin(t *testing.T) {
 		{"no origin allowed", "", "127.0.0.1:8080", true},
 		{"loopback allowed", "http://localhost:8080", "127.0.0.1:8080", true},
 		{"same origin on LAN allowed", "http://192.168.1.10:8080", "192.168.1.10:8080", true},
+		{"same host DNS name rejected (rebinding)", "http://tv.local:8080", "tv.local:8080", false},
 		{"cross origin rejected", "http://evil.example", "127.0.0.1:8080", false},
 	}
 	for _, tt := range tests {
