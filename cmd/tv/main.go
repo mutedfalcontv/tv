@@ -14,6 +14,7 @@ import (
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/help"
 	"github.com/mutedfalcontv/tv/internal/logcat"
 	"github.com/mutedfalcontv/tv/internal/output"
 	"github.com/mutedfalcontv/tv/internal/player"
@@ -50,21 +51,33 @@ func main() {
 		if output.JSON {
 			output.FailMsg("no command specified")
 		}
-		printUsage()
+		printUsage(os.Stderr)
 		os.Exit(1)
 	}
 
 	sub := args[0]
+	rest := args[1:]
+
 	// Internal subcommand used by `tv play <local-file>` to keep serving in a
 	// detached process after the parent command exits.
 	if sub == "__serve-file" {
-		serveFileChildCmd(args[1:])
+		serveFileChildCmd(rest)
+		return
+	}
+
+	switch sub {
+	case "help", "-h", "--help":
+		if output.JSON {
+			printHelpJSON()
+			return
+		}
+		printUsage(os.Stdout)
 		return
 	}
 
 	for _, c := range commands {
 		if c.name == sub {
-			c.run(args[1:])
+			c.run(rest)
 			return
 		}
 	}
@@ -72,7 +85,7 @@ func main() {
 		output.Failf("unknown command: %s", sub)
 	}
 	fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", sub)
-	printUsage()
+	printUsage(os.Stderr)
 	os.Exit(1)
 }
 
@@ -128,8 +141,27 @@ func parseFlags(fs *flag.FlagSet, args []string) {
 	}
 }
 
-func printUsage() {
-	fmt.Fprint(os.Stderr, `tv — Android TV CLI tools
+func hasFlag(args []string, name string) bool {
+	for _, a := range args {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
+func printHelpJSON() {
+	data, err := help.JSON()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	os.Stdout.Write(data)
+	fmt.Println()
+}
+
+func printUsage(w io.Writer) {
+	fmt.Fprint(w, `tv — Android TV CLI tools
 
 Usage:
   tv [global options] <command> [options] [args]
@@ -141,9 +173,9 @@ Global options:
 Commands:
 `)
 	for _, c := range commands {
-		fmt.Fprintf(os.Stderr, "  %-15s %s\n", c.name, c.desc)
+		fmt.Fprintf(w, "  %-15s %s\n", c.name, c.desc)
 	}
-	fmt.Fprint(os.Stderr, `
+	fmt.Fprint(w, `
 Notes:
   tv play <local-file> serves the file over HTTP and starts a detached server
   (1h TTL), prints the URL, and returns immediately. Use --serve-forever to
@@ -154,6 +186,8 @@ Notes:
   streaming logcat (tv logs with no dump/lines/filter), which prints one JSON
   object per line; use -d for a single {"logs":...} object.
 `)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Run 'tv help --json' for machine-readable help.")
 }
 
 func adbCmd(args []string) {

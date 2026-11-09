@@ -46,6 +46,7 @@ func (s *Server) Start(addr string) error {
 	mux.HandleFunc("GET /api/logs", s.handleLogs)
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/config", s.handlePutConfig)
+	mux.HandleFunc("GET /api/openapi.json", s.handleOpenAPI)
 	mux.HandleFunc("/ws/logs", s.handleWSLogs)
 
 	subFS, err := fs.Sub(angularFS, "static/browser")
