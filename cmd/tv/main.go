@@ -11,9 +11,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/discovery"
 	"github.com/mutedfalcontv/tv/internal/help"
 	"github.com/mutedfalcontv/tv/internal/logcat"
 	"github.com/mutedfalcontv/tv/internal/output"
@@ -31,8 +33,11 @@ var commands = []command{
 	{"adb", "ADB connection management", adbCmd},
 	{"app", "App management (list, launch, kill)", appCmd},
 	{"config", "Show configuration", configCmd},
+	{"devices", "List connected ADB devices", devicesCmd},
+	{"discover", "Discover TVs via mDNS (wireless debugging)", discoverCmd},
 	{"install", "Install an APK on the TV", installCmd},
 	{"logs", "View and filter TV logs (logcat)", logsCmd},
+	{"pair", "Pair with a TV over wireless ADB", pairCmd},
 	{"play", "Play a URL or local file on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
 	{"remote", "TV remote control", remoteCmd},
@@ -43,6 +48,12 @@ var commands = []command{
 
 // noInput is true when --no-input was passed or stdin is not a terminal.
 var noInput bool
+
+// globalDevice and globalIP come from the --device/--ip global flags.
+var (
+	globalDevice string
+	globalIP     string
+)
 
 func main() {
 	args, opts := parseGlobalFlags(os.Args[1:])
@@ -94,24 +105,64 @@ func main() {
 type globalOptions struct {
 	JSON    bool
 	NoInput bool
+	Device  string
+	IP      string
 }
 
 // parseGlobalFlags extracts global flags from anywhere in the argument list so
-// that both `tv --json app list` and `tv app list --json` work.
+// that both `tv --json app list` and `tv app list --json` work. It also
+// consumes --device/--ip used to target a specific device.
 func parseGlobalFlags(args []string) ([]string, globalOptions) {
 	var opts globalOptions
 	out := make([]string, 0, len(args))
-	for _, a := range args {
-		switch a {
-		case "--json", "-json", "--json=true", "-json=true":
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--json" || a == "-json" || a == "--json=true" || a == "-json=true":
 			opts.JSON = true
-		case "--json=false", "-json=false":
+		case a == "--json=false" || a == "-json=false":
 			opts.JSON = false
-		case "--no-input", "-no-input", "--no-input=true", "-no-input=true":
+		case a == "--no-input" || a == "-no-input" || a == "--no-input=true" || a == "-no-input=true":
 			opts.NoInput = true
-		case "--no-input=false", "-no-input=false":
+		case a == "--no-input=false" || a == "-no-input=false":
 			opts.NoInput = false
+		case a == "--device" || a == "-device":
+			if i+1 < len(args) {
+				opts.Device = args[i+1]
+				globalDevice = args[i+1]
+				i++
+				continue
+			}
+			out = append(out, a)
+		case a == "--ip" || a == "-ip":
+			if i+1 < len(args) {
+				opts.IP = args[i+1]
+				globalIP = args[i+1]
+				i++
+				continue
+			}
+			out = append(out, a)
 		default:
+			if v, ok := strings.CutPrefix(a, "--device="); ok {
+				opts.Device = v
+				globalDevice = v
+				continue
+			}
+			if v, ok := strings.CutPrefix(a, "-device="); ok {
+				opts.Device = v
+				globalDevice = v
+				continue
+			}
+			if v, ok := strings.CutPrefix(a, "--ip="); ok {
+				opts.IP = v
+				globalIP = v
+				continue
+			}
+			if v, ok := strings.CutPrefix(a, "-ip="); ok {
+				opts.IP = v
+				globalIP = v
+				continue
+			}
 			out = append(out, a)
 		}
 	}
@@ -169,8 +220,10 @@ Usage:
   tv [global options] <command> [options] [args]
 
 Global options:
-  --json         Emit one JSON value on stdout; errors are JSON on stderr
-  --no-input     Never prompt (automatic when stdin is not a TTY)
+  --json             Emit one JSON value on stdout; errors are JSON on stderr
+  --no-input         Never prompt (automatic when stdin is not a TTY)
+  --device <serial>  Target a specific device (adb -s <serial>)
+  --ip <address>     Target a specific device IP address
 
 Commands:
 `)
@@ -193,36 +246,43 @@ Notes:
 }
 
 func adbCmd(args []string) {
-	if len(args) < 1 {
-		output.FailMsg("Usage: tv adb <connect|disconnect>")
+	cfg := loadAdbConfig()
+	fs := newFlagSet("adb")
+	parseFlags(fs, args)
+	rest := fs.Args()
+	if len(rest) < 1 {
+		output.FailMsg("Usage: tv adb <connect|disconnect> [address]")
 	}
 	r := &adb.RealRunner{}
-	ip := adb.GetTVIP()
-	switch args[0] {
+	target := cfg.ConnectTarget()
+	if len(rest) >= 2 {
+		target = rest[1]
+	}
+	switch rest[0] {
 	case "connect":
 		if !output.JSON {
-			fmt.Printf("Connecting to %s...\n", ip)
+			fmt.Printf("Connecting to %s...\n", target)
 		}
-		result, err := r.Connect(ip)
+		result, err := r.Connect(target)
 		if err != nil {
 			output.FailWith(fmt.Sprintf("Error: %v", err), err)
 		}
-		output.Result(output.AdbResult{Action: "connect", IP: ip, Output: result}, func() {
+		output.Result(output.AdbResult{Action: "connect", IP: target, Output: result}, func() {
 			fmt.Println(result)
 		})
 	case "disconnect":
 		if !output.JSON {
-			fmt.Printf("Disconnecting from %s...\n", ip)
+			fmt.Printf("Disconnecting from %s...\n", target)
 		}
-		result, err := r.Disconnect(ip)
+		result, err := r.Disconnect(target)
 		if err != nil {
 			output.FailWith(fmt.Sprintf("Error: %v", err), err)
 		}
-		output.Result(output.AdbResult{Action: "disconnect", IP: ip, Output: result}, func() {
+		output.Result(output.AdbResult{Action: "disconnect", IP: target, Output: result}, func() {
 			fmt.Println(result)
 		})
 	default:
-		output.FailMsg(fmt.Sprintf("unknown adb subcommand: %s", args[0]))
+		output.FailMsg(fmt.Sprintf("unknown adb subcommand: %s", rest[0]))
 	}
 }
 
@@ -619,9 +679,9 @@ func loadAdbConfig() *adb.Config {
 	c, err := config.Load()
 	if err != nil {
 		output.Warn(fmt.Errorf("config load failed: %v (using defaults)", err))
-		return &adb.Config{TVIP: "192.168.2.3:5555"}
+		c = &config.Config{TVIP: "192.168.2.3:5555"}
 	}
-	return &adb.Config{TVIP: c.TVIP, DefaultPlayer: c.DefaultPlayer}
+	return newAdbConfig(c)
 }
 
 // parsePackages extracts package names from `pm list packages` output.
@@ -661,4 +721,146 @@ func isMac() bool {
 func execCommand(name string, args ...string) {
 	cmd := exec.Command(name, args...)
 	cmd.Start()
+}
+
+func devicesCmd(args []string) {
+	fs := newFlagSet("devices")
+	parseFlags(fs, args)
+
+	r := &adb.RealRunner{}
+	out, err := r.Devices()
+	if err != nil {
+		output.FailWith(fmt.Sprintf("Error: %v", err), err)
+	}
+
+	devices := adb.ParseDevices(out)
+	if devices == nil {
+		devices = []adb.Device{}
+	}
+
+	output.Result(devices, func() {
+		if len(devices) == 0 {
+			fmt.Println("No devices attached.")
+			return
+		}
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "SERIAL\tSTATE\tMODEL\tPRODUCT\tDEVICE\tTRANSPORT")
+		for _, d := range devices {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", d.Serial, d.State, d.Model, d.Product, d.Device, d.Transport)
+		}
+		w.Flush()
+	})
+}
+
+func discoverCmd(args []string) {
+	fs := newFlagSet("discover")
+	kindFlag := fs.String("kind", "", "Filter by kind: pairing, connect, legacy")
+	parseFlags(fs, args)
+
+	d := &discovery.ADBDiscovery{Runner: &adb.RealRunner{}}
+	services, err := d.Services()
+	if err != nil {
+		output.FailWith(fmt.Sprintf("Error: %v", err), err)
+	}
+
+	visible := make([]discovery.Service, 0, len(services))
+	for _, s := range services {
+		if *kindFlag == "" || string(s.Kind) == *kindFlag {
+			visible = append(visible, s)
+		}
+	}
+
+	output.Result(visible, func() {
+		if len(visible) == 0 {
+			fmt.Println("No wireless debugging services found. Enable Wireless debugging on the TV (Android 11+).")
+			return
+		}
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "KIND\tADDRESS\tNAME\tTYPE")
+		for _, s := range visible {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Kind, s.Address, s.Name, s.Type)
+		}
+		w.Flush()
+		for _, s := range visible {
+			if s.Kind == discovery.KindPairing {
+				fmt.Printf("\nPair with:    tv pair %s <code>\n", s.Address)
+			}
+		}
+		for _, s := range visible {
+			if s.Kind == discovery.KindConnect {
+				fmt.Printf("Connect with: tv adb connect %s\n", s.Address)
+			}
+		}
+	})
+}
+
+func pairCmd(args []string) {
+	fs := newFlagSet("pair")
+	connectAddr := fs.String("connect", "", "Address to connect to after pairing (defaults to the pairing address)")
+	parseFlags(fs, args)
+	rest := fs.Args()
+
+	if len(rest) < 2 {
+		output.FailMsg("Usage: tv pair <ip:port> <code>")
+	}
+	addr, code := rest[0], rest[1]
+	r := &adb.RealRunner{}
+
+	if !output.JSON {
+		fmt.Printf("Pairing with %s...\n", addr)
+	}
+	out, err := adb.PairDevice(r, addr, code)
+	if err != nil {
+		output.FailWith(fmt.Sprintf("Error: %v", err), err)
+	}
+
+	target := addr
+	if *connectAddr != "" {
+		target = *connectAddr
+	}
+	if !output.JSON {
+		fmt.Printf("Connecting to %s...\n", target)
+	}
+	connectOut, err := r.Connect(target)
+	if err != nil || connectFailed(connectOut) {
+		output.FailWith(fmt.Sprintf("Paired successfully, but connecting to %s failed: %s", target, strings.TrimSpace(connectOut)), fmt.Errorf("connect failed: %s", strings.TrimSpace(connectOut)))
+	}
+	output.Result(map[string]any{
+		"paired":    strings.TrimSpace(out),
+		"target":    target,
+		"connected": strings.TrimSpace(connectOut),
+	}, func() {
+		fmt.Println(connectOut)
+	})
+}
+
+func connectFailed(out string) bool {
+	low := strings.ToLower(out)
+	for _, marker := range []string{"failed", "cannot", "unable", "refused"} {
+		if strings.Contains(low, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func addDeviceFlags(fs *flag.FlagSet, cfg *adb.Config) {
+	fs.StringVar(&cfg.Device, "device", cfg.Device, "Target device serial (adb -s <serial>)")
+	fs.StringVar(&cfg.IP, "ip", cfg.IP, "Target device IP address")
+}
+
+func newAdbConfig(c *config.Config) *adb.Config {
+	cfg := &adb.Config{
+		TVIP:          c.TVIP,
+		Device:        c.Device,
+		IP:            c.IP,
+		DefaultPlayer: c.DefaultPlayer,
+	}
+	if globalDevice != "" {
+		cfg.Device = globalDevice
+	}
+	if globalIP != "" {
+		cfg.IP = globalIP
+	}
+	return cfg
 }

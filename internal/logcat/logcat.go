@@ -95,7 +95,7 @@ func RunStreamTo(cfg *adb.Config, opts Options, stdout, stderr io.Writer) error 
 		return fmt.Errorf("ADB not found on PATH")
 	}
 	logArgs := BuildArgs(opts)
-	cmd := exec.Command(adbPath, append([]string{"-s", cfg.TVIP, "logcat"}, logArgs...)...)
+	cmd := exec.Command(adbPath, append([]string{"-s", cfg.Serial(), "logcat"}, logArgs...)...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	return cmd.Run()

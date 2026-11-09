@@ -10,6 +10,8 @@ const defaultTVIP = "192.168.2.3:5555"
 
 type Config struct {
 	TVIP          string   `json:"tv_ip"`
+	Device        string   `json:"device,omitempty"`
+	IP            string   `json:"ip,omitempty"`
 	DefaultPlayer string   `json:"default_player"`
 	Token         string   `json:"token,omitempty"`
 	CORSOrigins   []string `json:"cors_origins,omitempty"`

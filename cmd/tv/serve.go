@@ -25,6 +25,8 @@ func serveCmd(args []string) {
 	token := fs.String("token", "", "Require this bearer token on /api/* and /ws/* (default: config token)")
 	cors := fs.String("cors", "", "Comma-separated origins allowed for CORS (default: none; loopback always allowed)")
 	noOpen := fs.Bool("no-open", false, "Don't open browser")
+	device := fs.String("device", "", "Target device serial (adb -s <serial>)")
+	ip := fs.String("ip", "", "Target device IP address")
 	parseFlags(fs, args)
 
 	cfg, err := config.Load()
@@ -55,7 +57,13 @@ func serveCmd(args []string) {
 		}
 	}
 
-	adbCfg := &adb.Config{TVIP: cfg.TVIP, DefaultPlayer: cfg.DefaultPlayer}
+	adbCfg := newAdbConfig(cfg)
+	if *device != "" {
+		adbCfg.Device = *device
+	}
+	if *ip != "" {
+		adbCfg.IP = *ip
+	}
 	runner := &adb.RealRunner{}
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)
