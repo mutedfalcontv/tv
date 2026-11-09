@@ -8,6 +8,7 @@ import (
 
 	"github.com/mutedfalcontv/tv/internal/adb"
 	"github.com/mutedfalcontv/tv/internal/config"
+	"github.com/mutedfalcontv/tv/internal/device"
 	"github.com/mutedfalcontv/tv/internal/logcat"
 	"github.com/mutedfalcontv/tv/internal/player"
 	"github.com/mutedfalcontv/tv/internal/remote"
@@ -254,4 +255,25 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOK(w, map[string]bool{"ok": true})
+}
+
+func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
+	if err := adb.EnsureConnected(s.config, s.runner); err != nil {
+		jsonError(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	data, err := device.CaptureScreenshot(s.config, s.runner)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
+	jsonOK(w, device.GetState(s.config, s.runner))
 }
