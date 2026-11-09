@@ -32,12 +32,14 @@ type playRequest struct {
 
 type configRequest struct {
 	TVIP          string `json:"tv_ip,omitempty"`
+	Device        string `json:"device,omitempty"`
+	IP            string `json:"ip,omitempty"`
 	DefaultPlayer string `json:"default_player,omitempty"`
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	err := adb.EnsureConnected(s.config, s.runner)
-	status := Status{Connected: err == nil, TVIP: s.config.TVIP}
+	status := Status{Connected: err == nil, TVIP: s.config.Serial()}
 	jsonOK(w, status)
 }
 
@@ -244,6 +246,14 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	if req.TVIP != "" {
 		cfg.TVIP = req.TVIP
 		s.config.TVIP = req.TVIP
+	}
+	if req.Device != "" {
+		cfg.Device = req.Device
+		s.config.Device = req.Device
+	}
+	if req.IP != "" {
+		cfg.IP = req.IP
+		s.config.IP = req.IP
 	}
 	if req.DefaultPlayer != "" {
 		cfg.DefaultPlayer = req.DefaultPlayer

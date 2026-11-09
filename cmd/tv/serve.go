@@ -19,6 +19,8 @@ func serveCmd(args []string) {
 	port := fs.Int("port", 8080, "HTTP server port")
 	host := fs.String("host", "0.0.0.0", "HTTP server host")
 	noOpen := fs.Bool("no-open", false, "Don't open browser")
+	device := fs.String("device", "", "Target device serial (adb -s <serial>)")
+	ip := fs.String("ip", "", "Target device IP address")
 	fs.Parse(args)
 
 	cfg, err := config.Load()
@@ -27,7 +29,13 @@ func serveCmd(args []string) {
 		cfg = &config.Config{TVIP: "192.168.2.3:5555"}
 	}
 
-	adbCfg := &adb.Config{TVIP: cfg.TVIP, DefaultPlayer: cfg.DefaultPlayer}
+	adbCfg := newAdbConfig(cfg)
+	if *device != "" {
+		adbCfg.Device = *device
+	}
+	if *ip != "" {
+		adbCfg.IP = *ip
+	}
 	runner := &adb.RealRunner{}
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)

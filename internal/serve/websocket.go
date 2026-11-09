@@ -69,7 +69,7 @@ func (s *Server) handleWSLogs(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logArgs := logcat.BuildArgs(opts)
-	cmd := exec.Command(adbPath, append([]string{"-s", s.config.TVIP, "logcat"}, logArgs...)...)
+	cmd := exec.Command(adbPath, append([]string{"-s", s.config.Serial(), "logcat"}, logArgs...)...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		conn.WriteJSON(logFrame{Line: fmt.Sprintf("Error: %v", err), Timestamp: time.Now().Format(time.RFC3339)})

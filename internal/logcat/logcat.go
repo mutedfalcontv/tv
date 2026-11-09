@@ -89,7 +89,7 @@ func RunStream(cfg *adb.Config, opts Options) error {
 		return fmt.Errorf("ADB not found on PATH")
 	}
 	logArgs := BuildArgs(opts)
-	cmd := exec.Command(adbPath, append([]string{"-s", cfg.TVIP, "logcat"}, logArgs...)...)
+	cmd := exec.Command(adbPath, append([]string{"-s", cfg.Serial(), "logcat"}, logArgs...)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
