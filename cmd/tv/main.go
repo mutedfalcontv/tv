@@ -37,6 +37,7 @@ var commands = []command{
 	{"discover", "Discover TVs via mDNS (wireless debugging)", discoverCmd},
 	{"install", "Install an APK on the TV", installCmd},
 	{"logs", "View and filter TV logs (logcat)", logsCmd},
+	{"mcp", "Start stdio MCP server for AI agents", mcpCmd},
 	{"pair", "Pair with a TV over wireless ADB", pairCmd},
 	{"play", "Play a URL or local file on TV", playCmd},
 	{"player", "List/set default video player", playerCmd},
