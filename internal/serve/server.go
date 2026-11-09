@@ -2,11 +2,15 @@ package serve
 
 import (
 	"context"
+	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mutedfalcontv/tv/internal/adb"
@@ -15,10 +19,22 @@ import (
 //go:embed all:static
 var angularFS embed.FS
 
+// Options configures the HTTP server's security posture.
+type Options struct {
+	// Token, when non-empty, requires "Authorization: Bearer <Token>" on
+	// /api/* and /ws/* requests.
+	Token string
+	// CORSOrigins lists extra origins allowed to make cross-origin requests.
+	// Loopback origins are always allowed; "*" is never emitted.
+	CORSOrigins []string
+}
+
 type Server struct {
-	config *adb.Config
-	runner adb.Runner
-	server *http.Server
+	config      *adb.Config
+	runner      adb.Runner
+	server      *http.Server
+	token       string
+	corsOrigins []string
 }
 
 type Status struct {
@@ -26,8 +42,13 @@ type Status struct {
 	TVIP      string `json:"tv_ip"`
 }
 
-func New(cfg *adb.Config, runner adb.Runner) *Server {
-	return &Server{config: cfg, runner: runner}
+func New(cfg *adb.Config, runner adb.Runner, opts Options) *Server {
+	return &Server{
+		config:      cfg,
+		runner:      runner,
+		token:       opts.Token,
+		corsOrigins: opts.CORSOrigins,
+	}
 }
 
 func (s *Server) Start(addr string) error {
@@ -57,7 +78,7 @@ func (s *Server) Start(addr string) error {
 
 	s.server = &http.Server{
 		Addr:         addr,
-		Handler:      corsMiddleware(mux),
+		Handler:      s.corsMiddleware(s.authMiddleware(mux)),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
@@ -70,17 +91,93 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+// authMiddleware requires a bearer token on API and WebSocket routes when the
+// server was configured with one. Static assets remain public so the SPA can
+// load and prompt for/normalize auth.
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	if s.token == "" {
+		return next
+	}
+	want := "Bearer " + s.token
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
+		if !protectedPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		got := r.Header.Get("Authorization")
+		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
+			jsonError(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func protectedPath(path string) bool {
+	return strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/ws/")
+}
+
+// corsMiddleware reflects only origins the server trusts (configured origins
+// plus loopback) and never sends a wildcard. Requests with no Origin (CLI,
+// agents) are unaffected.
+func (s *Server) corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && s.originAllowed(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// checkOrigin is the WebSocket upgrader's origin policy. Explicit configured
+// origins and loopback are allowed, as is same-origin (browser pages served by
+// this server, including on a non-loopback bind). Cross-origin requests from
+// unknown sites are rejected. Requests without an Origin header (non-browser
+// clients) are allowed.
+func (s *Server) checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	if s.originAllowed(origin) {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
+}
+
+func (s *Server) originAllowed(origin string) bool {
+	trimmed := strings.TrimRight(origin, "/")
+	for _, o := range s.corsOrigins {
+		if strings.EqualFold(strings.TrimRight(o, "/"), trimmed) {
+			return true
+		}
+	}
+	return isLoopbackOrigin(origin)
+}
+
+func isLoopbackOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func spaFallback(h http.Handler, fsys fs.FS) http.Handler {
