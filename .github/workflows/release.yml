@@ -78,7 +78,7 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release edit "$tag" --prerelease
             gh release upload "$tag" dist/* --clobber
-            gh release edit "$tag" --title "$tag" --generate-notes --prerelease
+            gh release edit "$tag" --title "$tag" --prerelease
           else
             pre=""; echo "$tag" | grep -Eqi -- '-(alpha|beta|rc)' && pre="--prerelease"
             gh release create "$tag" dist/* --title "$tag" --generate-notes --verify-tag $pre
