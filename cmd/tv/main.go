@@ -23,6 +23,8 @@ import (
 	"github.com/mutedfalcontv/tv/internal/remote"
 )
 
+var version = "dev"
+
 type command struct {
 	name string
 	desc string
@@ -60,6 +62,10 @@ func main() {
 	args, opts := parseGlobalFlags(os.Args[1:])
 	output.JSON = opts.JSON
 	noInput = opts.NoInput || !isTerminal(os.Stdin)
+	if opts.ShowVersion {
+		printVersion()
+		return
+	}
 
 	if len(args) == 0 {
 		if output.JSON {
@@ -87,6 +93,9 @@ func main() {
 		}
 		printUsage(os.Stdout)
 		return
+	case "version", "--version", "-v":
+		printVersion()
+		return
 	}
 
 	for _, c := range commands {
@@ -107,7 +116,8 @@ type globalOptions struct {
 	JSON    bool
 	NoInput bool
 	Device  string
-	IP      string
+	IP          string
+	ShowVersion bool
 }
 
 // parseGlobalFlags extracts global flags from anywhere in the argument list so
@@ -119,6 +129,8 @@ func parseGlobalFlags(args []string) ([]string, globalOptions) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
+		case a == "--version" || a == "-version" || a == "-v" || a == "version":
+			opts.ShowVersion = true
 		case a == "--json" || a == "-json" || a == "--json=true" || a == "-json=true":
 			opts.JSON = true
 		case a == "--json=false" || a == "-json=false":
@@ -195,7 +207,15 @@ func parseFlags(fs *flag.FlagSet, args []string) {
 	}
 }
 
+func printVersion() {
+	help.Version = version
+	output.Result(map[string]string{"name": "tv", "version": version}, func() {
+		fmt.Printf("tv %s\n", version)
+	})
+}
+
 func printHelpJSON() {
+	help.Version = version
 	data, err := help.JSON()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -216,6 +236,7 @@ Global options:
   --no-input         Never prompt (automatic when stdin is not a TTY)
   --device <serial>  Target a specific device (adb -s <serial>)
   --ip <address>     Target a specific device IP address
+  --version, -v      Show version and exit
 
 Commands:
 `)

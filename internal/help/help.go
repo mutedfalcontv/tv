@@ -8,7 +8,8 @@ import (
 )
 
 // Version is reported by the JSON help document.
-const Version = "1.0.0"
+// Overridden at build time via -ldflags "-X github.com/mutedfalcontv/tv/internal/help.Version=<tag>".
+var Version = "dev"
 
 // Flag describes a command-line flag.
 type Flag struct {
