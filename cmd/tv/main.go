@@ -34,7 +34,8 @@ type command struct {
 var commands = []command{
 	{"adb", "ADB connection management", adbCmd},
 	{"app", "App management (list, launch, kill)", appCmd},
-	{"config", "Show configuration", configCmd},
+	{"config", "Show or update configuration", configCmd},
+	{"doctor", "Diagnose setup and connectivity issues", doctorCmd},
 	{"devices", "List connected ADB devices", devicesCmd},
 	{"discover", "Discover TVs via mDNS (wireless debugging)", discoverCmd},
 	{"install", "Install an APK on the TV", installCmd},
@@ -383,27 +384,85 @@ func installCmd(args []string) {
 }
 
 func configCmd(args []string) {
-	cfg, err := config.Load()
-	if err != nil {
-		output.FailWith(fmt.Sprintf("Error: %v", err), err)
+	fs := newFlagSet("config")
+	parseFlags(fs, args)
+	rest := fs.Args()
+	if len(rest) == 0 || rest[0] == "show" {
+		cfg, err := config.Load()
+		if err != nil { output.FailWith(fmt.Sprintf("Error: %v", err), err) }
+		configFile, _ := config.Path()
+		output.Result(output.ConfigResult{ConfigFile: configFile, TVIP: cfg.TVIP, DefaultPlayer: cfg.DefaultPlayer}, func() {
+			fmt.Printf("Config file:    %s\n", configFile)
+			fmt.Printf("TV IP:          %s\n", cfg.TVIP)
+			fmt.Printf("Device:         %s\n", valueOrNone(cfg.Device))
+			fmt.Printf("IP:             %s\n", valueOrNone(cfg.IP))
+			fmt.Printf("Default player: %s\n", valueOrNone(cfg.DefaultPlayer))
+			fmt.Printf("Token:          %s\n", maskedToken(cfg.Token))
+			if len(cfg.CORSOrigins) > 0 {
+				fmt.Printf("CORS origins:   %s\n", strings.Join(cfg.CORSOrigins, ","))
+			} else {
+				fmt.Println("CORS origins:   (none)")
+			}
+		})
+		return
 	}
-	configFile := ""
-	if dir, derr := config.Dir(); derr == nil {
-		configFile = filepath.Join(dir, "config.json")
-	}
-	output.Result(output.ConfigResult{
-		ConfigFile:    configFile,
-		TVIP:          cfg.TVIP,
-		DefaultPlayer: cfg.DefaultPlayer,
-	}, func() {
-		fmt.Printf("Config file: ~/.config/tv/config.json\n")
-		fmt.Printf("TV IP:        %s\n", cfg.TVIP)
-		if cfg.DefaultPlayer != "" {
-			fmt.Printf("Default player: %s\n", cfg.DefaultPlayer)
-		} else {
-			fmt.Println("Default player: (none)")
+	switch rest[0] {
+	case "path":
+		configFile, err := config.Path()
+		if err != nil { output.FailWith(fmt.Sprintf("Error: %v", err), err) }
+		output.Result(output.ConfigPathResult{ConfigFile: configFile}, func() { fmt.Println(configFile) })
+	case "set":
+		if len(rest) < 3 { output.FailMsg("Usage: tv config set <key> <value>\nKeys: ip, device, target-ip, default-player, token, cors-origins") }
+		key := strings.ToLower(strings.ReplaceAll(rest[1], "_", "-"))
+		value := strings.Join(rest[2:], " ")
+		cfg, err := config.Load()
+		if err != nil { output.FailWith(fmt.Sprintf("Error: %v", err), err) }
+		switch key {
+		case "ip", "tv-ip":
+			cfg.TVIP = value
+		case "device":
+			if value == "none" { cfg.Device = "" } else { cfg.Device = value }
+		case "target-ip":
+			if value == "none" { cfg.IP = "" } else { cfg.IP = value }
+		case "default-player", "player":
+			if value == "none" { cfg.DefaultPlayer = "" } else { cfg.DefaultPlayer = value }
+		case "token":
+			if value == "none" { cfg.Token = "" } else { cfg.Token = value }
+		case "cors-origins", "cors":
+			if strings.TrimSpace(value) == "" || value == "none" {
+				cfg.CORSOrigins = nil
+			} else {
+				parts := []string{}
+				for _, o := range strings.Split(value, ",") {
+					o = strings.TrimSpace(o)
+					if o != "" { parts = append(parts, o) }
+				}
+				cfg.CORSOrigins = parts
+			}
+		default:
+			output.FailMsg(fmt.Sprintf("unknown config key: %s (supported: ip, device, target-ip, default-player, token, cors-origins)", rest[1]))
 		}
-	})
+		if err := cfg.Save(); err != nil { output.FailWith(fmt.Sprintf("Error saving config: %v", err), err) }
+		configFile, _ := config.Path()
+		display := value
+		if key == "token" && value != "" && value != "none" { display = maskedToken(value) }
+		output.Result(output.ConfigSetResult{ConfigFile: configFile, Key: key, Value: display, Saved: true}, func() {
+			fmt.Printf("Set %s in %s\n", key, configFile)
+		})
+	default:
+		output.FailMsg(fmt.Sprintf("unknown config subcommand: %s (use: show, path, set)", rest[0]))
+	}
+}
+
+func valueOrNone(s string) string {
+	if strings.TrimSpace(s) == "" { return "(none)" }
+	return s
+}
+
+func maskedToken(s string) string {
+	if strings.TrimSpace(s) == "" { return "(none)" }
+	if len(s) <= 4 { return "****" }
+	return s[:2] + strings.Repeat("*", len(s)-4) + s[len(s)-2:]
 }
 
 func playerCmd(args []string) {

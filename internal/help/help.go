@@ -92,8 +92,13 @@ func Tree() Document {
 			},
 			{
 				Name:        "config",
-				Description: "Show configuration (TV IP/device, default player)",
-				Usage:       "tv config",
+				Description: "Show or update configuration",
+				Usage:       "tv config [show|path|set <key> <value>]",
+			},
+			{
+				Name:        "doctor",
+				Description: "Diagnose ADB, config, target, and connectivity issues",
+				Usage:       "tv doctor",
 			},
 			{
 				Name:        "devices",
@@ -218,6 +223,7 @@ func Tree() Document {
 					{Name: "-token", Type: "string", Description: "Require this bearer token on /api/* and /ws/*"},
 					{Name: "-cors", Type: "string", Description: "Comma-separated origins allowed for CORS"},
 					{Name: "-no-open", Type: "bool", Default: "false", Description: "Do not open the browser on start"},
+					{Name: "-allow-no-auth", Type: "bool", Default: "false", Description: "Allow binding to non-loopback hosts without a token (unsafe)"},
 				},
 			},
 			{

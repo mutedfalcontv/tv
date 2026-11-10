@@ -24,6 +24,7 @@ func serveCmd(args []string) {
 	host := fs.String("host", "127.0.0.1", "HTTP server host (use 0.0.0.0 to expose on the network)")
 	token := fs.String("token", "", "Require this bearer token on /api/* and /ws/* (default: config token)")
 	cors := fs.String("cors", "", "Comma-separated origins allowed for CORS (default: none; loopback always allowed)")
+	allowNoAuth := fs.Bool("allow-no-auth", false, "Allow binding to non-loopback hosts without a token (unsafe)")
 	noOpen := fs.Bool("no-open", false, "Don't open browser")
 	parseFlags(fs, args)
 
@@ -51,7 +52,11 @@ func serveCmd(args []string) {
 	if !isLoopbackHost(*host) {
 		fmt.Fprintf(os.Stderr, "Warning: binding to non-loopback host %q — the server is reachable from the network\n", *host)
 		if authToken == "" {
-			fmt.Fprintln(os.Stderr, "Warning: no token set; anyone who can reach this host can control the TV. Consider --token.")
+			if *allowNoAuth {
+				fmt.Fprintln(os.Stderr, "Warning: --allow-no-auth set; anyone who can reach this host can control the TV.")
+			} else {
+				output.FailMsg(fmt.Sprintf("refusing to bind to non-loopback host %q without a token. Set --token / config token, or pass --allow-no-auth to override (unsafe).", *host))
+			}
 		}
 	}
 

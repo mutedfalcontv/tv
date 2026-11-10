@@ -98,3 +98,30 @@ type ServeResult struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
 }
+
+// DoctorCheck is one diagnostic result from `tv doctor`.
+type DoctorCheck struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"` // ok, warn, fail
+	Message string `json:"message"`
+	Fix     string `json:"fix,omitempty"`
+}
+
+// DoctorResult is the stable shape of `tv doctor --json`.
+type DoctorResult struct {
+	OK     bool          `json:"ok"`
+	Checks []DoctorCheck `json:"checks"`
+}
+
+// ConfigSetResult is the stable shape of `tv config set --json`.
+type ConfigSetResult struct {
+	ConfigFile string `json:"config_file"`
+	Key        string `json:"key"`
+	Value      string `json:"value"`
+	Saved      bool   `json:"saved"`
+}
+
+// ConfigPathResult is the stable shape of `tv config path --json`.
+type ConfigPathResult struct {
+	ConfigFile string `json:"config_file"`
+}

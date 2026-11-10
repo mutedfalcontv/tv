@@ -33,6 +33,11 @@ func path() (string, error) {
 	return filepath.Join(dir, "config.json"), nil
 }
 
+// Path returns the config file path.
+func Path() (string, error) {
+	return path()
+}
+
 func Load() (*Config, error) {
 	p, err := path()
 	if err != nil {
