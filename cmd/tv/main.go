@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,9 +114,9 @@ func main() {
 }
 
 type globalOptions struct {
-	JSON    bool
-	NoInput bool
-	Device  string
+	JSON        bool
+	NoInput     bool
+	Device      string
 	IP          string
 	ShowVersion bool
 }
@@ -302,6 +303,11 @@ func adbCmd(args []string) {
 func appCmd(args []string) {
 	if len(args) < 1 {
 		output.FailMsg("Usage: tv app <list|launch|kill> [package]")
+	}
+	if len(args) >= 2 {
+		if err := adb.ValidatePackage(args[1]); err != nil {
+			output.FailMsg(fmt.Sprintf("invalid package: %v", err))
+		}
 	}
 
 	cfg := loadAdbConfig()
@@ -599,6 +605,9 @@ func logsCmd(args []string) {
 	if len(fs.Args()) > 0 && fs.Args()[0] == "dump" {
 		opts.Dump = true
 	}
+	if err := logcat.Validate(opts); err != nil {
+		output.FailMsg(err.Error())
+	}
 
 	if err := adb.EnsureConnected(cfg, r); err != nil {
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
@@ -619,6 +628,9 @@ func logsCmd(args []string) {
 			output.FailWith(fmt.Sprintf("Error: %v", err), err)
 		}
 		opts.Package = strconv.Itoa(pid)
+		if err := logcat.Validate(opts); err != nil {
+			output.FailMsg(err.Error())
+		}
 		result.Package = pkg
 		result.PID = pid
 		if !output.JSON {
@@ -821,16 +833,27 @@ func pairCmd(args []string) {
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 
-	target := addr
-	if *connectAddr != "" {
-		target = *connectAddr
+	target := *connectAddr
+	if target == "" {
+		services, derr := (&discovery.ADBDiscovery{Runner: r}).Services()
+		if derr != nil {
+			output.FailWith(fmt.Sprintf("Paired successfully, but could not discover a connect endpoint: %v\nRun `tv adb connect <ip:port>` using the address from the TV's Wireless debugging screen.", derr), derr)
+		}
+		target, derr = connectTargetFor(addr, services)
+		if derr != nil {
+			output.FailWith(fmt.Sprintf("Paired successfully, but %v", derr), derr)
+		}
 	}
 	if !output.JSON {
 		fmt.Printf("Connecting to %s...\n", target)
 	}
 	connectOut, err := r.Connect(target)
-	if err != nil || connectFailed(connectOut) {
+	if err != nil || adb.ConnectFailed(connectOut) {
 		output.FailWith(fmt.Sprintf("Paired successfully, but connecting to %s failed: %s", target, strings.TrimSpace(connectOut)), fmt.Errorf("connect failed: %s", strings.TrimSpace(connectOut)))
+	}
+	// adb connect reports success from text alone; verify the device transition.
+	if err := adb.EnsureConnected(&adb.Config{TVIP: target, Device: target}, r); err != nil {
+		output.FailWith(fmt.Sprintf("Paired and connected to %s, but the device is not ready: %v", target, err), err)
 	}
 	output.Result(map[string]any{
 		"paired":    strings.TrimSpace(out),
@@ -841,14 +864,25 @@ func pairCmd(args []string) {
 	})
 }
 
-func connectFailed(out string) bool {
-	low := strings.ToLower(out)
-	for _, marker := range []string{"failed", "cannot", "unable", "refused"} {
-		if strings.Contains(low, marker) {
-			return true
+// connectTargetFor picks the wireless connect endpoint for a paired device.
+// Pairing and connecting use different dynamic ports, so the pairing address
+// must not be reused as the connect address. It matches the mDNS
+// _adb-tls-connect service for the same host, or asks for an explicit target.
+func connectTargetFor(pairAddr string, services []discovery.Service) (string, error) {
+	host := hostOnly(pairAddr)
+	for _, s := range services {
+		if s.Kind == discovery.KindConnect && hostOnly(s.Address) == host {
+			return s.Address, nil
 		}
 	}
-	return false
+	return "", fmt.Errorf("no _adb-tls-connect service found for %s; pass --connect <ip:port> from the TV's Wireless debugging screen", host)
+}
+
+func hostOnly(addr string) string {
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		return h
+	}
+	return addr
 }
 
 func newAdbConfig(c *config.Config) *adb.Config {

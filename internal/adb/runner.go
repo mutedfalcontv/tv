@@ -317,24 +317,57 @@ func EnsureConnected(cfg *Config, r Runner) error {
 		return err
 	}
 	serial := cfg.Serial()
-	for _, d := range ParseDevices(out) {
-		if d.Serial == serial && d.State == "device" {
-			return nil
-		}
+	if deviceState(out, serial) == "device" {
+		return nil
 	}
-	out, err = r.Connect(cfg.ConnectTarget())
+
+	target := cfg.ConnectTarget()
+	connectOut, err := r.Connect(target)
 	if err != nil {
 		return err
 	}
-	if connectFailed(out) {
-		return fmt.Errorf("adb connect failed: %s", strings.TrimSpace(out))
+	if ConnectFailed(connectOut) {
+		return fmt.Errorf("adb connect failed: %s", strings.TrimSpace(connectOut))
 	}
-	return nil
+
+	// adb connect can exit 0 and print a success message without the device
+	// actually reaching "device" (unauthorized, offline, stale transport).
+	// Verify the transition instead of trusting the text.
+	out, err = r.Devices()
+	if err != nil {
+		return fmt.Errorf("connected to %s but could not verify device state: %w", target, err)
+	}
+	state := deviceState(out, serial)
+	if state == "" && target != serial {
+		state = deviceState(out, target)
+	}
+	switch state {
+	case "device":
+		return nil
+	case "":
+		return fmt.Errorf("adb connect reported success but %s is not listed by `adb devices`", serial)
+	case "unauthorized":
+		return fmt.Errorf("device %s is unauthorized: accept the USB debugging prompt on the TV, then run `tv adb connect`", serial)
+	case "offline":
+		return fmt.Errorf("device %s is offline: run `tv adb connect %s`", serial, target)
+	default:
+		return fmt.Errorf("device %s is %q, expected \"device\"", serial, state)
+	}
 }
 
-// connectFailed reports whether adb connect output indicates a failure. adb
+// deviceState returns the state adb reports for serial, or "" if it is absent.
+func deviceState(out, serial string) string {
+	for _, d := range ParseDevices(out) {
+		if d.Serial == serial {
+			return d.State
+		}
+	}
+	return ""
+}
+
+// ConnectFailed reports whether adb connect output indicates a failure. adb
 // often exits 0 even when it cannot connect, so callers must check the text.
-func connectFailed(out string) bool {
+func ConnectFailed(out string) bool {
 	low := strings.ToLower(out)
 	for _, marker := range []string{"failed", "cannot", "unable", "refused", "error"} {
 		if strings.Contains(low, marker) {
@@ -366,14 +399,18 @@ type MockRunner struct {
 	MDNSServicesErr error
 	ConnectOut      string
 	ConnectErr      error
-	DisconnectOut   string
-	DisconnectErr   error
-	InstallOut      string
-	InstallErr      error
-	PairOut         string
-	PairErr         error
-	ShellOut        string
-	ShellErr        error
+	// DevicesResponses, when set, is consumed one entry per Devices call so a
+	// test can model a state transition (e.g. absent -> connected).
+	DevicesResponses []string
+	devicesIndex     int
+	DisconnectOut    string
+	DisconnectErr    error
+	InstallOut       string
+	InstallErr       error
+	PairOut          string
+	PairErr          error
+	ShellOut         string
+	ShellErr         error
 	// ShellResponses lets a test return a different result per shell command.
 	// Commands not present fall back to ShellOut/ShellErr.
 	ShellResponses     map[string]string
@@ -394,7 +431,17 @@ type MockRunner struct {
 	LastExecOutArgs    []string
 }
 
-func (m *MockRunner) Devices() (string, error) { return m.DevicesOut, m.DevicesErr }
+func (m *MockRunner) Devices() (string, error) {
+	if len(m.DevicesResponses) > 0 {
+		i := m.devicesIndex
+		if i >= len(m.DevicesResponses) {
+			i = len(m.DevicesResponses) - 1
+		}
+		m.devicesIndex++
+		return m.DevicesResponses[i], m.DevicesErr
+	}
+	return m.DevicesOut, m.DevicesErr
+}
 
 func (m *MockRunner) MDNSServices() (string, error) {
 	return m.MDNSServicesOut, m.MDNSServicesErr

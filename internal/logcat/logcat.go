@@ -66,8 +66,53 @@ func BuildArgs(opts Options) []string {
 	return args
 }
 
+// SafeField reports whether v is safe to pass to logcat as a tag or format
+// value without shell interpretation.
+func SafeField(v string) bool {
+	for _, r := range v {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
+			r == '_', r == '-', r == '.', r == ':':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// Validate rejects options that would be unsafe or invalid once RunOnce joins
+// them into an `adb shell` command string.
+func Validate(opts Options) error {
+	if opts.Tag != "" && !SafeField(opts.Tag) {
+		return fmt.Errorf("invalid log tag %q", opts.Tag)
+	}
+	if opts.Format != "" && !SafeField(opts.Format) {
+		return fmt.Errorf("invalid log format %q", opts.Format)
+	}
+	if opts.Package != "" {
+		if _, err := strconv.Atoi(opts.Package); err != nil {
+			return fmt.Errorf("package filter must be a numeric PID, got %q", opts.Package)
+		}
+	}
+	return nil
+}
+
 func ResolvePID(cfg *adb.Config, r adb.Runner, pkg string) (int, error) {
-	out, err := r.Shell(cfg, "ps -A | grep "+pkg)
+	if err := adb.ValidatePackage(pkg); err != nil {
+		return 0, err
+	}
+	// pidof resolves the process by package name directly and avoids matching
+	// the `grep` process that `ps -A | grep <pkg>` can return.
+	if out, err := r.Shell(cfg, "pidof "+pkg); err == nil {
+		for _, field := range strings.Fields(out) {
+			if pid, err := strconv.Atoi(field); err == nil {
+				return pid, nil
+			}
+		}
+	}
+	// Fallback for adb/Android versions without pidof. -w stops a package from
+	// matching an unrelated process, and the final grep drops its own process.
+	out, err := r.Shell(cfg, "ps -A | grep -w "+pkg+" | grep -v grep")
 	if err != nil {
 		return 0, fmt.Errorf("failed to list processes: %w", err)
 	}
@@ -110,6 +155,9 @@ func onceArgs(opts Options) []string {
 }
 
 func RunOnce(cfg *adb.Config, r adb.Runner, opts Options) (string, error) {
+	if err := Validate(opts); err != nil {
+		return "", err
+	}
 	logArgs := onceArgs(opts)
 	cmd := "logcat " + strings.Join(logArgs, " ")
 	return r.ShellWithStderr(cfg, cmd)
