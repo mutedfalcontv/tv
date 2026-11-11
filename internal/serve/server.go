@@ -52,6 +52,17 @@ func New(cfg *adb.Config, runner adb.Runner, opts Options) *Server {
 }
 
 func (s *Server) Start(addr string) error {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	return s.Serve(ln)
+}
+
+// Serve serves on an already-bound listener. Callers that need to report
+// readiness (for example `tv serve --json`) should bind with net.Listen first
+// and only report success once the bind has succeeded.
+func (s *Server) Serve(ln net.Listener) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/status", s.handleStatus)
@@ -79,17 +90,20 @@ func (s *Server) Start(addr string) error {
 	mux.Handle("/", s.spaFallback(http.FileServer(http.FS(subFS)), subFS))
 
 	s.server = &http.Server{
-		Addr:         addr,
+		Addr:         ln.Addr().String(),
 		Handler:      s.corsMiddleware(s.authMiddleware(mux)),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Printf("TV Remote UI at http://%s", addr)
-	return s.server.ListenAndServe()
+	log.Printf("TV Remote UI at http://%s", ln.Addr())
+	return s.server.Serve(ln)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.server == nil {
+		return nil
+	}
 	return s.server.Shutdown(ctx)
 }
 
