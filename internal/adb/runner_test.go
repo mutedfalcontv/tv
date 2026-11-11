@@ -1,6 +1,7 @@
 package adb
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -20,7 +21,10 @@ func TestEnsureConnected_AlreadyConnected(t *testing.T) {
 
 func TestEnsureConnected_NotConnected(t *testing.T) {
 	m := &MockRunner{
-		DevicesOut: "List of devices attached\n",
+		DevicesResponses: []string{
+			"List of devices attached\n",
+			"List of devices attached\n192.168.2.3:5555   device\n",
+		},
 		ConnectOut: "connected to 192.168.2.3:5555",
 	}
 	cfg := &Config{TVIP: "192.168.2.3:5555"}
@@ -35,7 +39,10 @@ func TestEnsureConnected_NotConnected(t *testing.T) {
 
 func TestEnsureConnected_Offline(t *testing.T) {
 	m := &MockRunner{
-		DevicesOut: "List of devices attached\n192.168.2.3:5555   offline\n",
+		DevicesResponses: []string{
+			"List of devices attached\n192.168.2.3:5555   offline\n",
+			"List of devices attached\n192.168.2.3:5555   device\n",
+		},
 		ConnectOut: "connected to 192.168.2.3:5555",
 	}
 	cfg := &Config{TVIP: "192.168.2.3:5555"}
@@ -45,6 +52,72 @@ func TestEnsureConnected_Offline(t *testing.T) {
 	}
 	if !m.ConnectCalled {
 		t.Error("Connect should be called when device is offline")
+	}
+}
+
+func TestEnsureConnected_PostConnectStillOffline(t *testing.T) {
+	m := &MockRunner{
+		DevicesResponses: []string{
+			"List of devices attached\n",
+			"List of devices attached\n192.168.2.3:5555   offline\n",
+		},
+		ConnectOut: "connected to 192.168.2.3:5555",
+	}
+	err := EnsureConnected(&Config{TVIP: "192.168.2.3:5555"}, m)
+	if err == nil {
+		t.Fatal("EnsureConnected() expected error for offline device, got nil")
+	}
+	if !strings.Contains(err.Error(), "offline") {
+		t.Errorf("error = %v, want offline explanation", err)
+	}
+}
+
+func TestEnsureConnected_PostConnectUnauthorized(t *testing.T) {
+	m := &MockRunner{
+		DevicesResponses: []string{
+			"List of devices attached\n",
+			"List of devices attached\n192.168.2.3:5555   unauthorized\n",
+		},
+		ConnectOut: "connected to 192.168.2.3:5555",
+	}
+	err := EnsureConnected(&Config{TVIP: "192.168.2.3:5555"}, m)
+	if err == nil {
+		t.Fatal("EnsureConnected() expected error for unauthorized device, got nil")
+	}
+	if !strings.Contains(err.Error(), "unauthorized") {
+		t.Errorf("error = %v, want unauthorized explanation", err)
+	}
+}
+
+func TestEnsureConnected_PostConnectNotListed(t *testing.T) {
+	m := &MockRunner{
+		DevicesResponses: []string{
+			"List of devices attached\n",
+			"List of devices attached\n",
+		},
+		ConnectOut: "connected to 192.168.2.3:5555",
+	}
+	err := EnsureConnected(&Config{TVIP: "192.168.2.3:5555"}, m)
+	if err == nil {
+		t.Fatal("EnsureConnected() expected error when device never appears, got nil")
+	}
+}
+
+func TestConnectFailed(t *testing.T) {
+	tests := []struct {
+		out  string
+		want bool
+	}{
+		{"connected to 192.168.2.3:5555", false},
+		{"already connected to 192.168.2.3:5555", false},
+		{"failed to connect to 192.168.2.3:5555", true},
+		{"cannot connect to 192.168.2.3:5555", true},
+		{"error: protocol fault", true},
+	}
+	for _, tt := range tests {
+		if got := ConnectFailed(tt.out); got != tt.want {
+			t.Errorf("ConnectFailed(%q) = %v, want %v", tt.out, got, tt.want)
+		}
 	}
 }
 

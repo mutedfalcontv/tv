@@ -224,11 +224,11 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 			opts.Lines = n
 		}
 	}
-	if opts.Tag != "" && !safeLogcatField(opts.Tag) {
+	if opts.Tag != "" && !logcat.SafeField(opts.Tag) {
 		jsonError(w, "invalid tag", http.StatusBadRequest)
 		return
 	}
-	if opts.Format != "" && !safeLogcatField(opts.Format) {
+	if opts.Format != "" && !logcat.SafeField(opts.Format) {
 		jsonError(w, "invalid format", http.StatusBadRequest)
 		return
 	}
@@ -312,18 +312,4 @@ func (s *Server) handleScreenshot(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, device.GetState(s.config, s.runner))
-}
-
-// safeLogcatField reports whether v is safe to pass to logcat as a tag or
-// format value without shell interpretation.
-func safeLogcatField(v string) bool {
-	for _, r := range v {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9',
-			r == '_', r == '-', r == '.', r == ':':
-		default:
-			return false
-		}
-	}
-	return true
 }

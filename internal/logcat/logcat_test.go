@@ -168,3 +168,49 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+func TestValidate_RejectsUnsafeFields(t *testing.T) {
+	tests := []struct {
+		name string
+		opts Options
+	}{
+		{"tag with semicolon", Options{Tag: "ActivityManager; reboot"}},
+		{"tag with pipe", Options{Tag: "VLC | reboot"}},
+		{"format with space", Options{Format: "brief extra"}},
+		{"non-numeric pid", Options{Package: "1234; reboot"}},
+	}
+	for _, tt := range tests {
+		if err := Validate(tt.opts); err == nil {
+			t.Errorf("Validate(%+v) = nil, want error", tt.opts)
+		}
+	}
+}
+
+func TestValidate_AcceptsSafeFields(t *testing.T) {
+	opts := Options{Tag: "ActivityManager", Format: "threadtime", Package: "1234"}
+	if err := Validate(opts); err != nil {
+		t.Errorf("Validate(%+v) = %v, want nil", opts, err)
+	}
+}
+
+func TestRunOnce_RejectsInvalidTagBeforeShell(t *testing.T) {
+	m := &adb.MockRunner{}
+	_, err := RunOnce(&adb.Config{TVIP: "192.168.2.3:5555"}, m, Options{Tag: "x; reboot"})
+	if err == nil {
+		t.Fatal("RunOnce() expected error for unsafe tag, got nil")
+	}
+	if m.LastShellCmd != "" {
+		t.Errorf("shell ran despite invalid tag: %q", m.LastShellCmd)
+	}
+}
+
+func TestResolvePID_RejectsInvalidPackage(t *testing.T) {
+	m := &adb.MockRunner{}
+	_, err := ResolvePID(&adb.Config{TVIP: "192.168.2.3:5555"}, m, "com.x; reboot")
+	if err == nil {
+		t.Fatal("ResolvePID() expected error for invalid package, got nil")
+	}
+	if m.LastShellCmd != "" {
+		t.Errorf("shell ran despite invalid package: %q", m.LastShellCmd)
+	}
+}

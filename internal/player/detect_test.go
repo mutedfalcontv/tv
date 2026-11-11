@@ -13,6 +13,7 @@ package:org.videolan.vlc
 package:com.android.chrome
 package:com.google.android.youtube`,
 	}
+	mock.DevicesOut = "List of devices attached\n192.168.2.3:5555   device\n"
 	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
 	players, err := Detect(cfg, mock)
 	if err != nil {
@@ -38,6 +39,7 @@ func TestDetect_PrefixMatch(t *testing.T) {
 package:org.example.kodi
 package:com.android.chrome`,
 	}
+	mock.DevicesOut = "List of devices attached\n192.168.2.3:5555   device\n"
 	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
 	players, err := Detect(cfg, mock)
 	if err != nil {
@@ -53,6 +55,7 @@ func TestDetect_Sorted(t *testing.T) {
 		ShellOut: `package:org.videolan.vlc
 package:com.brouken.player`,
 	}
+	mock.DevicesOut = "List of devices attached\n192.168.2.3:5555   device\n"
 	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
 	players, err := Detect(cfg, mock)
 	if err != nil {
@@ -68,6 +71,7 @@ package:com.brouken.player`,
 
 func TestResolve_ByName(t *testing.T) {
 	mock := &adb.MockRunner{ShellOut: `package:com.brouken.player`}
+	mock.DevicesOut = "List of devices attached\n192.168.2.3:5555   device\n"
 	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
 	pkg, err := Resolve(cfg, mock, "Just Player")
 	if err != nil {
@@ -80,6 +84,7 @@ func TestResolve_ByName(t *testing.T) {
 
 func TestResolve_ByPackage(t *testing.T) {
 	mock := &adb.MockRunner{ShellOut: `package:org.videolan.vlc`}
+	mock.DevicesOut = "List of devices attached\n192.168.2.3:5555   device\n"
 	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
 	pkg, err := Resolve(cfg, mock, "org.videolan.vlc")
 	if err != nil {
@@ -92,6 +97,7 @@ func TestResolve_ByPackage(t *testing.T) {
 
 func TestResolve_NotFound(t *testing.T) {
 	mock := &adb.MockRunner{ShellOut: `package:com.brouken.player`}
+	mock.DevicesOut = "List of devices attached\n192.168.2.3:5555   device\n"
 	cfg := &adb.Config{TVIP: "192.168.2.3:5555"}
 	_, err := Resolve(cfg, mock, "NonExistent")
 	if err == nil {
