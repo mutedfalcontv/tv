@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -51,5 +52,37 @@ func TestDir(t *testing.T) {
 	}
 	if filepath.Base(dir) != "tv" {
 		t.Errorf("Dir() base = %q, want tv", filepath.Base(dir))
+	}
+}
+
+func TestSave_ReplacesFileAtomically(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
+	orig := &Config{TVIP: "10.0.0.1:5555"}
+	if err := orig.Save(); err != nil {
+		t.Fatalf("Save() unexpected error: %v", err)
+	}
+	updated := &Config{TVIP: "10.0.0.2:5555"}
+	if err := updated.Save(); err != nil {
+		t.Fatalf("Save() unexpected error: %v", err)
+	}
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+	if loaded.TVIP != updated.TVIP {
+		t.Errorf("TVIP = %q, want %q", loaded.TVIP, updated.TVIP)
+	}
+	dir, err := Dir()
+	if err != nil {
+		t.Fatalf("Dir() unexpected error: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir() unexpected error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "config.json" {
+		t.Errorf("config dir entries = %v, want only config.json", entries)
 	}
 }

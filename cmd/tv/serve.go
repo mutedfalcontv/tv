@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -66,19 +67,27 @@ func serveCmd(args []string) {
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	server := serve.New(adbCfg, runner, serve.Options{Token: authToken, CORSOrigins: corsOrigins})
 
+	// Bind before reporting readiness so --json never claims success for an
+	// unavailable port.
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		output.FailWith(fmt.Sprintf("Error: cannot listen on %s: %v", addr, err), err)
+	}
+	actualPort := ln.Addr().(*net.TCPAddr).Port
+	url := displayURL(*host, actualPort)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	url := fmt.Sprintf("http://localhost:%d", *port)
 	if output.JSON {
-		output.Emit(output.ServeResult{URL: url, Host: *host, Port: *port})
+		output.Emit(output.ServeResult{URL: url, Host: *host, Port: actualPort})
 	}
 	if !*noOpen && !noInput && !output.JSON {
 		openBrowser(url)
 	}
 
 	go func() {
-		if err := server.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			output.FailWith(fmt.Sprintf("Server error: %v", err), err)
 		}
 	}()
@@ -100,6 +109,16 @@ func isLoopbackHost(host string) bool {
 		return ip.IsLoopback()
 	}
 	return false
+}
+
+// displayURL returns the URL to print/open. Wildcard binds are reachable via
+// localhost; a specific bind address is used as-is.
+func displayURL(host string, port int) string {
+	h := host
+	if h == "" || h == "0.0.0.0" || h == "::" || h == "[::]" {
+		h = "localhost"
+	}
+	return "http://" + net.JoinHostPort(h, strconv.Itoa(port))
 }
 
 func openBrowser(url string) {
