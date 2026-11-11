@@ -73,7 +73,7 @@ export class WebSocketService {
         scan<LogFrame, LogFrame[]>((acc, frame) => {
           const next = [...acc, frame];
           return next.length > 500 ? next.slice(-500) : next;
-        }, []),
+        }, this.logs()),
         share(),
       )
       .subscribe({
@@ -107,6 +107,9 @@ export class WebSocketService {
     this.ws = null;
     this.connected.set(false);
     this.connecting.set(false);
+    if (this.error()) {
+      this.error.set(null);
+    }
   }
 
   filter(opts: Filter) {
