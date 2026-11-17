@@ -72,6 +72,49 @@ var levels = map[string]string{
 	"warning": "*:W", "error": "*:E", "fatal": "*:F",
 }
 
+// Prefetch bounds for filtered dumps. `logcat -t N` truncates the buffer
+// *before* matching -s/--pid/level filters, so asking for the last N lines of
+// "only errors" returns nothing unless matching lines happen to sit in the last
+// N raw lines. When filters are present we therefore read a larger raw window
+// and trim to the requested count client-side.
+const (
+	minFilteredPrefetch = 2000
+	maxFilteredPrefetch = 10000
+	prefetchFactor      = 20
+)
+
+func hasFilters(opts Options) bool {
+	return opts.Package != "" || opts.Tag != "" || opts.Level != ""
+}
+
+// readLines is the -t value to request from logcat for this query. It equals
+// opts.Lines when no filters are applied (exact, cheap) and a larger bounded
+// window when filters are applied.
+func readLines(opts Options) int {
+	if opts.Lines <= 0 {
+		return 0
+	}
+	if !hasFilters(opts) {
+		return opts.Lines
+	}
+	n := opts.Lines * prefetchFactor
+	if n < minFilteredPrefetch {
+		n = minFilteredPrefetch
+	}
+	if n > maxFilteredPrefetch {
+		n = maxFilteredPrefetch
+	}
+	return n
+}
+
+// tailLines keeps the most recent limit non-empty lines.
+func tailLines(lines []string, limit int) []string {
+	if limit <= 0 || len(lines) <= limit {
+		return lines
+	}
+	return lines[len(lines)-limit:]
+}
+
 func BuildArgs(opts Options) []string {
 	var args []string
 
@@ -84,8 +127,8 @@ func BuildArgs(opts Options) []string {
 		args = append(args, "-d")
 	}
 
-	if opts.Lines > 0 {
-		args = append(args, "-t", strconv.Itoa(opts.Lines))
+	if n := readLines(opts); n > 0 {
+		args = append(args, "-t", strconv.Itoa(n))
 	}
 
 	if opts.Package != "" {
@@ -205,5 +248,18 @@ func RunOnce(cfg *adb.Config, r adb.Runner, opts Options) (string, error) {
 	}
 	logArgs := onceArgs(opts)
 	cmd := "logcat " + strings.Join(logArgs, " ")
-	return r.ShellWithStderr(cfg, cmd)
+	out, err := r.ShellWithStderr(cfg, cmd)
+	if err != nil {
+		return "", err
+	}
+	if opts.Lines > 0 && hasFilters(opts) {
+		lines := make([]string, 0, opts.Lines)
+		for _, line := range strings.Split(out, "\n") {
+			if strings.TrimSpace(line) != "" {
+				lines = append(lines, line)
+			}
+		}
+		return strings.Join(tailLines(lines, opts.Lines), "\n"), nil
+	}
+	return out, nil
 }

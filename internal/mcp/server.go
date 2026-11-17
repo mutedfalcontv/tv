@@ -24,7 +24,12 @@ tv_players to discover installed packages before launching or killing them.
 Remote keys accepted by tv_press_key: up, down, left, right, ok, home, back,
 menu, power, input, info, subtitle, volup, voldown, mute, play, pause, stop,
 ff, rew, next, prev, chup, chdown, and 0-9.
-tv_logs always returns a bounded snapshot; it never streams.`
+tv_logs always returns a bounded snapshot; it never streams. Pass package to
+scope logs to one app's process.
+For "an app is misbehaving / stuttering / crashing", call tv_diagnose with the
+package (or omit it for the foreground app). It returns connection, foreground
+state, the package PID, recent error logs, and hints in one call.
+tv_state reports foreground app, volume/mute, and screen state.`
 
 // Server exposes Android TV control as MCP tools over a mockable adb.Runner.
 type Server struct {
