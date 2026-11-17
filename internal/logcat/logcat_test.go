@@ -70,6 +70,9 @@ func TestBuildArgs_Dump(t *testing.T) {
 	}
 }
 
+// TestBuildArgs_Combined pins that a filtered query asks for a prefetch window
+// rather than -t <lines>: logcat truncates with -t before applying filters, so
+// -t 50 alone would drop matching lines. RunOnce trims back to 50 client-side.
 func TestBuildArgs_Combined(t *testing.T) {
 	opts := Options{Level: "error", Lines: 50, Format: "threadtime"}
 	args := BuildArgs(opts)
@@ -77,8 +80,65 @@ func TestBuildArgs_Combined(t *testing.T) {
 	for _, a := range args {
 		combined += a + " "
 	}
-	if !contains(combined, "*:E") || !contains(combined, "-t 50") || !contains(combined, "-v threadtime") {
+	if !contains(combined, "*:E") || !contains(combined, "-v threadtime") {
 		t.Errorf("BuildArgs() = %v, missing combined filters", args)
+	}
+	if contains(combined, "-t 50 ") {
+		t.Errorf("BuildArgs() = %v, must not truncate before filtering", args)
+	}
+	if !contains(combined, "-t 2000 ") {
+		t.Errorf("BuildArgs() = %v, want the filtered prefetch window", args)
+	}
+}
+
+func TestReadLines(t *testing.T) {
+	tests := []struct {
+		name string
+		opts Options
+		want int
+	}{
+		{"no lines", Options{Level: "e"}, 0},
+		{"unfiltered is exact", Options{Lines: 100}, 100},
+		{"filtered uses floor", Options{Lines: 50, Level: "e"}, minFilteredPrefetch},
+		{"filtered scales", Options{Lines: 500, Level: "e"}, 10000},
+		{"filtered caps", Options{Lines: 5000, Tag: "VLC"}, maxFilteredPrefetch},
+		{"pid is filtered", Options{Lines: 10, Package: "1234"}, minFilteredPrefetch},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := readLines(tt.opts); got != tt.want {
+				t.Errorf("readLines(%+v) = %d, want %d", tt.opts, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTailLines(t *testing.T) {
+	lines := []string{"a", "b", "c", "d"}
+	if got := tailLines(lines, 2); len(got) != 2 || got[0] != "c" || got[1] != "d" {
+		t.Errorf("tailLines() = %v, want last two", got)
+	}
+	if got := tailLines(lines, 10); len(got) != 4 {
+		t.Errorf("tailLines() = %v, want all lines when limit exceeds length", got)
+	}
+	if got := tailLines(lines, 0); len(got) != 4 {
+		t.Errorf("tailLines() = %v, want all lines when limit is zero", got)
+	}
+}
+
+// TestRunOnce_TrimsFilteredOutput is the regression test for filtered dumps
+// returning nothing: RunOnce asks for a wide window and must return only the
+// requested number of matching lines.
+func TestRunOnce_TrimsFilteredOutput(t *testing.T) {
+	m := &adb.MockRunner{
+		ShellWithStderrOut: "E/one\nE/two\nE/three\n",
+	}
+	out, err := RunOnce(&adb.Config{TVIP: "192.168.2.3:5555"}, m, Options{Level: "e", Lines: 2, Dump: true})
+	if err != nil {
+		t.Fatalf("RunOnce() error: %v", err)
+	}
+	if out != "E/two\nE/three" {
+		t.Errorf("RunOnce() = %q, want the last two lines", out)
 	}
 }
 

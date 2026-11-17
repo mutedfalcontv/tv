@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -19,6 +20,9 @@ import (
 const (
 	defaultLogLines = 100
 	maxLogLines     = 1000
+
+	defaultDiagnoseLines = 50
+	maxDiagnoseLines     = 200
 )
 
 // ---- argument types ----
@@ -49,13 +53,21 @@ type playIn struct {
 type playersIn struct{}
 
 type logsIn struct {
-	Level string `json:"level,omitempty" jsonschema:"Minimum log level: v, d, i, w, e, f"`
-	Tag   string `json:"tag,omitempty" jsonschema:"Filter by log tag"`
-	Lines int    `json:"lines,omitempty" jsonschema:"Number of recent lines (1-1000, default 100)"`
+	Level   string `json:"level,omitempty" jsonschema:"Minimum log level: v, d, i, w, e, f"`
+	Tag     string `json:"tag,omitempty" jsonschema:"Filter by log tag"`
+	Package string `json:"package,omitempty" jsonschema:"Only logs from this Android package's running process, e.g. com.nuvio.tv"`
+	Lines   int    `json:"lines,omitempty" jsonschema:"Number of recent lines (1-1000, default 100)"`
 }
 
 type screenshotIn struct {
 	Path string `json:"path,omitempty" jsonschema:"Save the PNG to this path; when omitted, the image is returned as base64"`
+}
+
+type stateIn struct{}
+
+type diagnoseIn struct {
+	Package string `json:"package,omitempty" jsonschema:"Optional Android package to scope error logs to, e.g. com.nuvio.tv"`
+	Lines   int    `json:"lines,omitempty" jsonschema:"Recent error lines to include (1-200, default 50)"`
 }
 
 // ---- output types ----
@@ -122,6 +134,33 @@ type screenshotOut struct {
 	Base64   string `json:"base64,omitempty"`
 }
 
+type stateOut struct {
+	Connected          bool   `json:"connected"`
+	TVIP               string `json:"tv_ip"`
+	ForegroundApp      string `json:"foreground_app,omitempty"`
+	ForegroundActivity string `json:"foreground_activity,omitempty"`
+	Volume             int    `json:"volume"`
+	Muted              bool   `json:"muted"`
+	ScreenOn           bool   `json:"screen_on"`
+	Wakefulness        string `json:"wakefulness,omitempty"`
+}
+
+type diagnoseOut struct {
+	Connected          bool     `json:"connected"`
+	TVIP               string   `json:"tv_ip"`
+	DefaultPlayer      string   `json:"default_player"`
+	ForegroundApp      string   `json:"foreground_app,omitempty"`
+	ForegroundActivity string   `json:"foreground_activity,omitempty"`
+	ForegroundPID      int      `json:"foreground_pid,omitempty"`
+	Volume             int      `json:"volume"`
+	Muted              bool     `json:"muted"`
+	ScreenOn           bool     `json:"screen_on"`
+	Wakefulness        string   `json:"wakefulness,omitempty"`
+	ErrorLines         []string `json:"error_lines"`
+	Truncated          bool     `json:"truncated"`
+	Hints              []string `json:"hints,omitempty"`
+}
+
 // ---- registration ----
 
 func (s *Server) registerTools() {
@@ -177,8 +216,18 @@ func (s *Server) registerTools() {
 
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "tv_logs",
-		Description: "Return a bounded snapshot of TV logs. Never streams.",
+		Description: "Return a bounded snapshot of TV logs, optionally scoped to one package's process. Never streams.",
 	}, s.handleLogs)
+
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "tv_state",
+		Description: "Report live TV state: foreground app, volume/mute, screen and wakefulness.",
+	}, s.handleState)
+
+	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
+		Name:        "tv_diagnose",
+		Description: "One-shot diagnosis: connection, foreground app, volume/screen, and recent error logs (optionally scoped to a package) with hints.",
+	}, s.handleDiagnose)
 
 	mcpsdk.AddTool(s.mcp, &mcpsdk.Tool{
 		Name:        "tv_screenshot",
@@ -338,6 +387,13 @@ func (s *Server) handleLogs(_ context.Context, _ *mcpsdk.CallToolRequest, in log
 		Lines: lines,
 		Dump:  true,
 	}
+	if in.Package != "" {
+		pid, err := resolvePID(r, s.cfg, in.Package)
+		if err != nil {
+			return nil, logsOut{}, err
+		}
+		opts.Package = strconv.Itoa(pid)
+	}
 	raw, err := logcat.RunOnce(s.cfg, r, opts)
 	if err != nil {
 		return nil, logsOut{}, err
@@ -348,6 +404,89 @@ func (s *Server) handleLogs(_ context.Context, _ *mcpsdk.CallToolRequest, in log
 		outLines = outLines[len(outLines)-lines:]
 	}
 	return nil, logsOut{Count: len(outLines), Truncated: truncated, Lines: outLines}, nil
+}
+
+func (s *Server) handleState(_ context.Context, _ *mcpsdk.CallToolRequest, _ stateIn) (*mcpsdk.CallToolResult, stateOut, error) {
+	r := s.runnerWithTimeout()
+	st := device.GetState(s.cfg, r)
+	return nil, stateOut{
+		Connected:          st.Connected,
+		TVIP:               st.TVIP,
+		ForegroundApp:      st.ForegroundApp,
+		ForegroundActivity: st.ForegroundActivity,
+		Volume:             st.Volume,
+		Muted:              st.Muted,
+		ScreenOn:           st.ScreenOn,
+		Wakefulness:        st.Wakefulness,
+	}, nil
+}
+
+// handleDiagnose gathers the facts needed to explain a misbehaving app in one
+// call: connection, device state, the package's PID, and recent error logs.
+func (s *Server) handleDiagnose(_ context.Context, _ *mcpsdk.CallToolRequest, in diagnoseIn) (*mcpsdk.CallToolResult, diagnoseOut, error) {
+	if in.Package != "" {
+		if err := adb.ValidatePackage(in.Package); err != nil {
+			return nil, diagnoseOut{}, err
+		}
+	}
+	lines, truncated := normalizeDiagnoseLines(in.Lines)
+	r := s.runnerWithTimeout()
+
+	out := diagnoseOut{
+		TVIP:          s.cfg.Serial(),
+		DefaultPlayer: s.cfg.DefaultPlayer,
+		ErrorLines:    []string{},
+		Truncated:     truncated,
+	}
+
+	st := device.GetState(s.cfg, r)
+	out.Connected = st.Connected
+	out.ForegroundApp = st.ForegroundApp
+	out.ForegroundActivity = st.ForegroundActivity
+	out.Volume = st.Volume
+	out.Muted = st.Muted
+	out.ScreenOn = st.ScreenOn
+	out.Wakefulness = st.Wakefulness
+
+	if !st.Connected {
+		out.Hints = append(out.Hints, "device is not connected: run tv_connect, then retry")
+		return nil, out, nil
+	}
+
+	pkg := in.Package
+	if pkg == "" {
+		pkg = st.ForegroundApp
+	}
+	opts := logcat.Options{Level: "e", Lines: lines, Dump: true}
+	if pkg != "" {
+		if pid, err := resolvePID(r, s.cfg, pkg); err == nil {
+			opts.Package = strconv.Itoa(pid)
+			out.ForegroundPID = pid
+		} else {
+			out.Hints = append(out.Hints, fmt.Sprintf("%s is not running: launch it with tv_launch_app, then retry", pkg))
+		}
+	}
+
+	if raw, err := logcat.RunOnce(s.cfg, r, opts); err == nil {
+		out.ErrorLines = splitLogLines(raw)
+		if len(out.ErrorLines) > lines {
+			out.Truncated = true
+			out.ErrorLines = out.ErrorLines[len(out.ErrorLines)-lines:]
+		}
+	} else {
+		out.Hints = append(out.Hints, fmt.Sprintf("error logs unavailable: %v", err))
+	}
+
+	if pkg != "" && out.ForegroundApp != "" && pkg != out.ForegroundApp {
+		out.Hints = append(out.Hints, fmt.Sprintf("requested package %s is not the foreground app (%s)", pkg, out.ForegroundApp))
+	}
+	if out.DefaultPlayer == "" {
+		out.Hints = append(out.Hints, "no default player configured: set one with tv_players + tv_play")
+	}
+	if out.Muted {
+		out.Hints = append(out.Hints, "TV is muted")
+	}
+	return nil, out, nil
 }
 
 func (s *Server) handleScreenshot(_ context.Context, _ *mcpsdk.CallToolRequest, in screenshotIn) (*mcpsdk.CallToolResult, screenshotOut, error) {
@@ -384,6 +523,48 @@ func normalizeLines(n int) (int, bool) {
 		return maxLogLines, true
 	}
 	return n, false
+}
+
+func normalizeDiagnoseLines(n int) (int, bool) {
+	if n <= 0 {
+		return defaultDiagnoseLines, false
+	}
+	if n > maxDiagnoseLines {
+		return maxDiagnoseLines, true
+	}
+	return n, false
+}
+
+// resolvePID maps a package name to its running process ID. A not-running
+// package is an error so callers can distinguish it from a filter that matched
+// nothing.
+func resolvePID(r adb.Runner, cfg *adb.Config, pkg string) (int, error) {
+	if err := adb.ValidatePackage(pkg); err != nil {
+		return 0, err
+	}
+	out, err := r.Shell(cfg, "pidof "+pkg)
+	if err == nil {
+		for _, field := range strings.Fields(out) {
+			if pid, convErr := strconv.Atoi(field); convErr == nil {
+				return pid, nil
+			}
+		}
+	}
+	out, err = r.Shell(cfg, "ps -A | grep -w "+pkg+" | grep -v grep")
+	if err != nil {
+		// grep exits non-zero when nothing matches, so a failed lookup means no
+		// running process rather than a broken device.
+		return 0, fmt.Errorf("package %s is not running", pkg)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 {
+			if pid, convErr := strconv.Atoi(fields[1]); convErr == nil {
+				return pid, nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("package %s is not running", pkg)
 }
 
 func parsePackages(out string) []string {
