@@ -18,15 +18,16 @@ import (
 )
 
 // defaultBackgroundServeTTL is how long a detached file server keeps running.
-const defaultBackgroundServeTTL = time.Hour
+const defaultBackgroundServeTTL = localserve.BackgroundTTL
 
 func playLocal(cfg *adb.Config, r adb.Runner, playerPkg, file string, forever bool, timeout time.Duration) {
-	if forever || timeout > 0 {
-		playLocalForeground(cfg, r, playerPkg, file, forever, timeout)
+	mode := localserve.ModeFor(forever, timeout)
+	if !mode.Detached() {
+		playLocalForeground(cfg, r, playerPkg, file, mode)
 		return
 	}
 
-	serveURL, err := spawnFileServer(file, cfg.TVIP, defaultBackgroundServeTTL)
+	serveURL, err := spawnFileServer(file, cfg.TVIP, mode)
 	if err != nil {
 		output.FailWith(fmt.Sprintf("Error starting file server: %v", err), err)
 	}
@@ -44,14 +45,14 @@ func playLocal(cfg *adb.Config, r adb.Runner, playerPkg, file string, forever bo
 		Played:     true,
 		LocalFile:  file,
 		ServeURL:   serveURL,
-		ServeMode:  "background",
-		TTLSeconds: int(defaultBackgroundServeTTL.Seconds()),
+		ServeMode:  mode.String(),
+		TTLSeconds: int(mode.TTL(timeout).Seconds()),
 	}, func() {
 		fmt.Println("Done.")
 	})
 }
 
-func playLocalForeground(cfg *adb.Config, r adb.Runner, playerPkg, file string, forever bool, timeout time.Duration) {
+func playLocalForeground(cfg *adb.Config, r adb.Runner, playerPkg, file string, mode localserve.Mode) {
 	srv, err := localserve.Start(file, cfg.TVIP, 0)
 	if err != nil {
 		output.FailWith(fmt.Sprintf("Error starting file server: %v", err), err)
@@ -65,13 +66,7 @@ func playLocalForeground(cfg *adb.Config, r adb.Runner, playerPkg, file string, 
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 
-	mode := "foreground"
-	ttl := 0
-	if forever {
-		mode = "forever"
-	} else {
-		ttl = int(timeout.Seconds())
-	}
+	ttl := mode.TTL(0)
 	output.Result(output.PlayResult{
 		URL:        srv.URL,
 		Player:     playerPkg,
@@ -79,21 +74,17 @@ func playLocalForeground(cfg *adb.Config, r adb.Runner, playerPkg, file string, 
 		Played:     true,
 		LocalFile:  file,
 		ServeURL:   srv.URL,
-		ServeMode:  mode,
-		TTLSeconds: ttl,
+		ServeMode:  mode.String(),
+		TTLSeconds: int(ttl.Seconds()),
 	}, func() {
-		if forever {
+		if ttl <= 0 {
 			fmt.Println("Serving forever (Ctrl-C to stop)...")
 		} else {
-			fmt.Printf("Serving for %s (Ctrl-C to stop)...\n", timeout)
+			fmt.Printf("Serving for %s (Ctrl-C to stop)...\n", ttl)
 		}
 	})
 
-	if forever {
-		waitForShutdown(0)
-	} else {
-		waitForShutdown(timeout)
-	}
+	waitForShutdown(ttl)
 	shutdownServer(srv)
 	if !output.JSON {
 		fmt.Println("Done.")
@@ -123,7 +114,7 @@ func shutdownServer(s *localserve.Server) {
 
 // spawnFileServer starts a detached copy of this binary that serves file, then
 // returns the URL once the child has bound its listener.
-func spawnFileServer(file, tvIP string, ttl time.Duration) (string, error) {
+func spawnFileServer(file, tvIP string, mode localserve.Mode) (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return "", err
@@ -131,7 +122,8 @@ func spawnFileServer(file, tvIP string, ttl time.Duration) (string, error) {
 	cmd := exec.Command(exe, "__serve-file",
 		"--file", file,
 		"--tv-ip", tvIP,
-		"--ttl", ttl.String(),
+		"--mode", mode.String(),
+		"--ttl", mode.TTL(0).String(),
 	)
 	cmd.Stdin = nil
 	stdout, err := cmd.StdoutPipe()
@@ -167,11 +159,19 @@ func serveFileChildCmd(args []string) {
 	fs := newFlagSet("__serve-file")
 	file := fs.String("file", "", "File to serve")
 	tvIP := fs.String("tv-ip", "", "TV address used to choose the advertised interface")
-	ttl := fs.Duration("ttl", defaultBackgroundServeTTL, "How long to keep serving")
+	modeFlag := fs.String("mode", localserve.ModeBackground.String(), "Serve mode: background")
+	ttl := fs.Duration("ttl", localserve.BackgroundTTL, "How long to keep serving")
 	parseFlags(fs, args)
 
 	if *file == "" {
 		fmt.Fprintln(os.Stderr, "missing --file")
+		os.Exit(1)
+	}
+	// The detached child only implements the background mode: a foreground or
+	// forever mode is this process's job, never a released child's.
+	mode := localserve.ParseMode(*modeFlag)
+	if !mode.Valid() || mode != localserve.ModeBackground {
+		fmt.Fprintf(os.Stderr, "serve-file: unsupported mode %q\n", *modeFlag)
 		os.Exit(1)
 	}
 	srv, err := localserve.Start(*file, *tvIP, 0)
@@ -181,6 +181,6 @@ func serveFileChildCmd(args []string) {
 	}
 	fmt.Println(srv.URL)
 
-	waitForShutdown(*ttl)
+	waitForShutdown(mode.TTL(*ttl))
 	shutdownServer(srv)
 }

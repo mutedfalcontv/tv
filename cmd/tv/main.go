@@ -395,7 +395,9 @@ func configCmd(args []string) {
 	rest := fs.Args()
 	if len(rest) == 0 || rest[0] == "show" {
 		cfg, err := config.Load()
-		if err != nil { output.FailWith(fmt.Sprintf("Error: %v", err), err) }
+		if err != nil {
+			output.FailWith(fmt.Sprintf("Error: %v", err), err)
+		}
 		configFile, _ := config.Path()
 		output.Result(output.ConfigResult{ConfigFile: configFile, TVIP: cfg.TVIP, DefaultPlayer: cfg.DefaultPlayer}, func() {
 			fmt.Printf("Config file:    %s\n", configFile)
@@ -415,25 +417,47 @@ func configCmd(args []string) {
 	switch rest[0] {
 	case "path":
 		configFile, err := config.Path()
-		if err != nil { output.FailWith(fmt.Sprintf("Error: %v", err), err) }
+		if err != nil {
+			output.FailWith(fmt.Sprintf("Error: %v", err), err)
+		}
 		output.Result(output.ConfigPathResult{ConfigFile: configFile}, func() { fmt.Println(configFile) })
 	case "set":
-		if len(rest) < 3 { output.FailMsg("Usage: tv config set <key> <value>\nKeys: ip, device, target-ip, default-player, token, cors-origins") }
+		if len(rest) < 3 {
+			output.FailMsg("Usage: tv config set <key> <value>\nKeys: ip, device, target-ip, default-player, token, cors-origins")
+		}
 		key := strings.ToLower(strings.ReplaceAll(rest[1], "_", "-"))
 		value := strings.Join(rest[2:], " ")
 		cfg, err := config.Load()
-		if err != nil { output.FailWith(fmt.Sprintf("Error: %v", err), err) }
+		if err != nil {
+			output.FailWith(fmt.Sprintf("Error: %v", err), err)
+		}
 		switch key {
 		case "ip", "tv-ip":
 			cfg.TVIP = value
 		case "device":
-			if value == "none" { cfg.Device = "" } else { cfg.Device = value }
+			if value == "none" {
+				cfg.Device = ""
+			} else {
+				cfg.Device = value
+			}
 		case "target-ip":
-			if value == "none" { cfg.IP = "" } else { cfg.IP = value }
+			if value == "none" {
+				cfg.IP = ""
+			} else {
+				cfg.IP = value
+			}
 		case "default-player", "player":
-			if value == "none" { cfg.DefaultPlayer = "" } else { cfg.DefaultPlayer = value }
+			if value == "none" {
+				cfg.DefaultPlayer = ""
+			} else {
+				cfg.DefaultPlayer = value
+			}
 		case "token":
-			if value == "none" { cfg.Token = "" } else { cfg.Token = value }
+			if value == "none" {
+				cfg.Token = ""
+			} else {
+				cfg.Token = value
+			}
 		case "cors-origins", "cors":
 			if strings.TrimSpace(value) == "" || value == "none" {
 				cfg.CORSOrigins = nil
@@ -441,17 +465,23 @@ func configCmd(args []string) {
 				parts := []string{}
 				for _, o := range strings.Split(value, ",") {
 					o = strings.TrimSpace(o)
-					if o != "" { parts = append(parts, o) }
+					if o != "" {
+						parts = append(parts, o)
+					}
 				}
 				cfg.CORSOrigins = parts
 			}
 		default:
 			output.FailMsg(fmt.Sprintf("unknown config key: %s (supported: ip, device, target-ip, default-player, token, cors-origins)", rest[1]))
 		}
-		if err := cfg.Save(); err != nil { output.FailWith(fmt.Sprintf("Error saving config: %v", err), err) }
+		if err := cfg.Save(); err != nil {
+			output.FailWith(fmt.Sprintf("Error saving config: %v", err), err)
+		}
 		configFile, _ := config.Path()
 		display := value
-		if key == "token" && value != "" && value != "none" { display = maskedToken(value) }
+		if key == "token" && value != "" && value != "none" {
+			display = maskedToken(value)
+		}
 		output.Result(output.ConfigSetResult{ConfigFile: configFile, Key: key, Value: display, Saved: true}, func() {
 			fmt.Printf("Set %s in %s\n", key, configFile)
 		})
@@ -461,13 +491,19 @@ func configCmd(args []string) {
 }
 
 func valueOrNone(s string) string {
-	if strings.TrimSpace(s) == "" { return "(none)" }
+	if strings.TrimSpace(s) == "" {
+		return "(none)"
+	}
 	return s
 }
 
 func maskedToken(s string) string {
-	if strings.TrimSpace(s) == "" { return "(none)" }
-	if len(s) <= 4 { return "****" }
+	if strings.TrimSpace(s) == "" {
+		return "(none)"
+	}
+	if len(s) <= 4 {
+		return "****"
+	}
 	return s[:2] + strings.Repeat("*", len(s)-4) + s[len(s)-2:]
 }
 
@@ -554,7 +590,6 @@ func playCmd(args []string) {
   -serve-timeout <dur>    Serve a local file in the foreground for a duration`)
 	}
 
-	target := remaining[0]
 	playerPkg := *playerFlag
 	if playerPkg == "" {
 		players, err := player.Detect(cfg, r)
@@ -574,8 +609,9 @@ func playCmd(args []string) {
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 
-	if fi, err := os.Stat(target); err == nil && !fi.IsDir() {
-		abs, err := filepath.Abs(target)
+	target := player.ClassifyTarget(remaining[0], statFile)
+	if target.Kind.IsLocal() {
+		abs, err := filepath.Abs(target.Path)
 		if err != nil {
 			output.FailWith(fmt.Sprintf("Error: %v", err), err)
 		}
@@ -586,17 +622,26 @@ func playCmd(args []string) {
 	if !output.JSON {
 		fmt.Printf("Playing on %s via %s...\n", cfg.TVIP, playerPkg)
 	}
-	if err := player.PlayOnTV(cfg, r, playerPkg, target); err != nil {
+	if err := player.PlayOnTV(cfg, r, playerPkg, target.URL); err != nil {
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 	output.Result(output.PlayResult{
-		URL:    target,
+		URL:    target.URL,
 		Player: playerPkg,
 		TVIP:   cfg.TVIP,
 		Played: true,
 	}, func() {
 		fmt.Println("Done.")
 	})
+}
+
+// statFile reports whether path exists and is a regular file.
+func statFile(path string) (isFile bool, ok bool) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, false
+	}
+	return !fi.IsDir(), true
 }
 
 func remoteCmd(args []string) {
@@ -753,12 +798,11 @@ func noPlayerMessage(players []player.Info) string {
 }
 
 func loadAdbConfig() *adb.Config {
-	c, err := config.Load()
-	if err != nil {
-		output.Warn(fmt.Errorf("config load failed: %v (using defaults)", err))
-		c = &config.Config{TVIP: "192.168.2.3:5555"}
+	loaded := config.LoadWithSource()
+	if loaded.Source == config.SourceInvalid {
+		output.Warn(fmt.Errorf("config file is unreadable: %v (using defaults; the file was left untouched)", loaded.Err()))
 	}
-	return newAdbConfig(c)
+	return newAdbConfig(loaded.Config)
 }
 
 // parsePackages extracts package names from `pm list packages` output.
