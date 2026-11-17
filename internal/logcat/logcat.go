@@ -21,6 +21,51 @@ type Options struct {
 	Dump    bool
 }
 
+// Mode is how one logcat invocation reads the buffer.
+//
+//	ModeStream  follow the buffer until interrupted (no -c, no -d)
+//	ModeDump    print a bounded snapshot and exit (-d, optionally -t/filters)
+//	ModeClear   clear the buffers and exit (-b all -c)
+//
+// Clear takes precedence over Dump; Dump takes precedence over Stream.
+// RunOnce forces ModeDump for every non-clear option. The WebSocket handler
+// streams with filters and deliberately does not consult Mode: filters there
+// restart a streaming logcat, not a bounded dump.
+type Mode int
+
+const (
+	ModeStream Mode = iota
+	ModeDump
+	ModeClear
+)
+
+// Mode returns the capture mode implied by the options. A line limit or a
+// level/tag filter implies ModeDump because `tv logs` reads a snapshot in that
+// case; a PID/package filter alone does not, matching `tv logs -p`.
+func (o Options) Mode() Mode {
+	switch {
+	case o.Clear:
+		return ModeClear
+	case o.Dump || o.Lines > 0 || o.Level != "" || o.Tag != "":
+		return ModeDump
+	default:
+		return ModeStream
+	}
+}
+
+func (m Mode) String() string {
+	switch m {
+	case ModeStream:
+		return "stream"
+	case ModeDump:
+		return "dump"
+	case ModeClear:
+		return "clear"
+	default:
+		return "unknown"
+	}
+}
+
 var levels = map[string]string{
 	"v": "*:V", "d": "*:D", "i": "*:I", "w": "*:W", "e": "*:E", "f": "*:F",
 	"verbose": "*:V", "debug": "*:D", "info": "*:I",

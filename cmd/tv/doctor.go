@@ -70,10 +70,10 @@ func doctorCmd(args []string) {
 		connected, unauth := false, false
 		for _, d := range devices {
 			if serial == "" || d.Serial == serial {
-				if d.State == "unauthorized" {
+				switch d.DeviceState() {
+				case adb.DeviceStateUnauthorized:
 					unauth = true
-				}
-				if d.State == "device" {
+				case adb.DeviceStateDevice:
 					connected = true
 				}
 			}

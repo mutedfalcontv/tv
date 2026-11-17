@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -54,6 +55,64 @@ func TestADBDiscovery_ErrorDocumentsFallback(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "platform-tools") || !strings.Contains(err.Error(), "_adb-tls-pairing") {
 		t.Errorf("Services() error = %q, want fallback documentation", err)
+	}
+}
+
+func TestParseKind(t *testing.T) {
+	tests := []struct {
+		raw  string
+		want Kind
+	}{
+		{"pairing", KindPairing},
+		{"connect", KindConnect},
+		{"legacy", KindLegacy},
+		{" PAIRING ", KindPairing},
+		{"", KindUnknown},
+		{"bogus", KindUnknown},
+	}
+	for _, tt := range tests {
+		if got := ParseKind(tt.raw); got != tt.want {
+			t.Errorf("ParseKind(%q) = %q, want %q", tt.raw, got, tt.want)
+		}
+	}
+}
+
+func TestKindValid(t *testing.T) {
+	tests := []struct {
+		kind Kind
+		want bool
+	}{
+		{KindPairing, true},
+		{KindConnect, true},
+		{KindLegacy, true},
+		{KindUnknown, false},
+		{Kind(""), false},
+	}
+	for _, tt := range tests {
+		if got := tt.kind.Valid(); got != tt.want {
+			t.Errorf("Kind(%q).Valid() = %v, want %v", tt.kind, got, tt.want)
+		}
+	}
+}
+
+func TestKindStringAndJSON(t *testing.T) {
+	for _, kind := range []Kind{KindPairing, KindConnect, KindLegacy} {
+		if got := kind.String(); got != string(kind) {
+			t.Errorf("Kind(%q).String() = %q, want %q", kind, got, kind)
+		}
+	}
+	if got := Kind("").String(); got != "unknown" {
+		t.Errorf("Kind(\"\").String() = %q, want unknown", got)
+	}
+
+	// Service.Kind is a string-backed type, so the JSON wire value must stay
+	// the same word the CLI and --kind filter accept.
+	data, err := json.Marshal(Service{Kind: KindPairing})
+	if err != nil {
+		t.Fatalf("Marshal() error: %v", err)
+	}
+	if !strings.Contains(string(data), `"kind":"pairing"`) {
+		t.Errorf("Service JSON = %s, want kind pairing", data)
 	}
 }
 

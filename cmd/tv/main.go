@@ -697,7 +697,8 @@ func logsCmd(args []string) {
 		}
 	}
 
-	if opts.Clear {
+	switch opts.Mode() {
+	case logcat.ModeClear:
 		_, err := logcat.RunOnce(cfg, r, opts)
 		if err != nil {
 			output.FailWith(fmt.Sprintf("Error: %v", err), err)
@@ -706,9 +707,7 @@ func logsCmd(args []string) {
 			fmt.Println("Log buffer cleared.")
 		})
 		return
-	}
-
-	if opts.Dump || opts.Lines > 0 || opts.Level != "" || opts.Tag != "" {
+	case logcat.ModeDump:
 		out, err := logcat.RunOnce(cfg, r, opts)
 		if err != nil {
 			output.FailWith(fmt.Sprintf("Error: %v", err), err)
@@ -841,9 +840,17 @@ func discoverCmd(args []string) {
 		output.FailWith(fmt.Sprintf("Error: %v", err), err)
 	}
 
+	var kind discovery.Kind
+	if *kindFlag != "" {
+		kind = discovery.ParseKind(*kindFlag)
+		if !kind.Valid() {
+			output.FailMsg(fmt.Sprintf("invalid kind %q (use pairing, connect, or legacy)", *kindFlag))
+		}
+	}
+
 	visible := make([]discovery.Service, 0, len(services))
 	for _, s := range services {
-		if *kindFlag == "" || string(s.Kind) == *kindFlag {
+		if *kindFlag == "" || s.Kind == kind {
 			visible = append(visible, s)
 		}
 	}
