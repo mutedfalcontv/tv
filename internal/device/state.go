@@ -48,15 +48,11 @@ func GetState(cfg *adb.Config, r adb.Runner) State {
 }
 
 // adbConnected reports whether ip appears in "adb devices" output in the
-// "device" state (as opposed to "offline" or "unauthorized").
+// ready state (as opposed to offline or unauthorized). A probe error and an
+// unlisted device both surface as connected:false in the JSON schema.
 func adbConnected(devices, ip string) bool {
-	for _, line := range strings.Split(devices, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == ip {
-			return fields[1] == "device"
-		}
-	}
-	return false
+	state, _, _ := adb.DeviceStateFor(devices, ip)
+	return state.Ready()
 }
 
 var componentRe = regexp.MustCompile(`([A-Za-z0-9_][A-Za-z0-9_.]*)/([A-Za-z0-9_.$]+)`)

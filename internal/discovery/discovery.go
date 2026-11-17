@@ -13,7 +13,43 @@ const (
 	KindPairing Kind = "pairing"
 	KindConnect Kind = "connect"
 	KindLegacy  Kind = "legacy"
+	// KindUnknown is never produced from mDNS; it is the result of parsing an
+	// unrecognized --kind filter.
+	KindUnknown Kind = "unknown"
 )
+
+// ParseKind maps a --kind value to its typed kind. Anything unrecognized
+// becomes KindUnknown so callers can reject it instead of filtering to an
+// empty result.
+func ParseKind(raw string) Kind {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "pairing":
+		return KindPairing
+	case "connect":
+		return KindConnect
+	case "legacy":
+		return KindLegacy
+	default:
+		return KindUnknown
+	}
+}
+
+// Valid reports whether k is a kind discovery can produce.
+func (k Kind) Valid() bool {
+	switch k {
+	case KindPairing, KindConnect, KindLegacy:
+		return true
+	default:
+		return false
+	}
+}
+
+func (k Kind) String() string {
+	if k == "" {
+		return string(KindUnknown)
+	}
+	return string(k)
+}
 
 type Service struct {
 	Name    string `json:"name"`

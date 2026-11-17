@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -120,17 +119,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		got := r.Header.Get("Authorization")
-		if got == "" {
-			if t := r.URL.Query().Get("token"); t != "" {
-				got = "Bearer " + t
-			}
-		}
-		if got == "" {
-			if c, err := r.Cookie("tv_token"); err == nil {
-				got = "Bearer " + c.Value
-			}
-		}
+		got, _ := bearerCredential(r)
 		if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
 			jsonError(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -149,7 +138,8 @@ func protectedPath(path string) bool {
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" && s.originAllowed(origin) {
+		class := s.classifyOrigin(r)
+		if class.Reflect() {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Add("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -161,7 +151,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		}
 		// Reject cross-origin state-changing requests instead of merely
 		// withholding CORS headers (a no-preflight POST would otherwise run).
-		if origin != "" && !s.trustedOrigin(r, origin) &&
+		if !class.Trusted() &&
 			r.Method != http.MethodGet && r.Method != http.MethodHead {
 			jsonError(w, "cross-origin request rejected", http.StatusForbidden)
 			return
@@ -184,51 +174,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 // unknown sites are rejected. Requests without an Origin header (non-browser
 // clients) are allowed.
 func (s *Server) checkOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return true
-	}
-	return s.trustedOrigin(r, origin)
-}
-
-// trustedOrigin reports whether origin may drive this server. It accepts
-// configured origins, loopback, and same-origin requests whose host is an IP
-// literal or localhost. A same-host DNS name is the DNS-rebinding case (an
-// attacker domain resolving to this server) and is rejected; add it to
-// corsOrigins (--cors) if a hostname is genuinely used.
-func (s *Server) trustedOrigin(r *http.Request, origin string) bool {
-	if s.originAllowed(origin) {
-		return true
-	}
-	u, err := url.Parse(origin)
-	if err != nil || !strings.EqualFold(u.Host, r.Host) {
-		return false
-	}
-	host := u.Hostname()
-	return strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil
-}
-
-func (s *Server) originAllowed(origin string) bool {
-	trimmed := strings.TrimRight(origin, "/")
-	for _, o := range s.corsOrigins {
-		if strings.EqualFold(strings.TrimRight(o, "/"), trimmed) {
-			return true
-		}
-	}
-	return isLoopbackOrigin(origin)
-}
-
-func isLoopbackOrigin(origin string) bool {
-	u, err := url.Parse(origin)
-	if err != nil {
-		return false
-	}
-	host := u.Hostname()
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	return s.classifyOrigin(r).Trusted()
 }
 
 func (s *Server) spaFallback(h http.Handler, fsys fs.FS) http.Handler {

@@ -20,7 +20,8 @@ type Config struct {
 }
 
 // Serial returns the adb serial used for `adb -s`. A configured device wins,
-// then an explicit IP, and finally the legacy TVIP default.
+// then an explicit IP, and finally the legacy TVIP default. This is the value
+// that commands and connection verification must agree on.
 func (c *Config) Serial() string {
 	if c.Device != "" {
 		return c.Device
@@ -31,7 +32,11 @@ func (c *Config) Serial() string {
 	return c.TVIP
 }
 
-// ConnectTarget returns the address used when (re)connecting to a device.
+// ConnectTarget returns the address used when (re)connecting to a device. A
+// device serial that already carries a port is dialable; a USB serial is not,
+// so it falls back to IP/TVIP. Callers must still verify the transition for
+// Serial(), never for this address: a successful dial to a different transport
+// does not mean commands addressed to the serial will work.
 func (c *Config) ConnectTarget() string {
 	if c.Device != "" && strings.Contains(c.Device, ":") {
 		return c.Device
@@ -240,7 +245,7 @@ func ParseDevices(out string) []Device {
 		}
 		d := Device{Serial: fields[0], State: fields[1]}
 		if d.State == "no" && len(fields) >= 3 && fields[2] == "permissions" {
-			d.State = "no permissions"
+			d.State = DeviceStateNoPermissions.String()
 		}
 		for _, field := range fields[2:] {
 			key, val, ok := strings.Cut(field, ":")
@@ -317,7 +322,7 @@ func EnsureConnected(cfg *Config, r Runner) error {
 		return err
 	}
 	serial := cfg.Serial()
-	if deviceState(out, serial) == "device" {
+	if state, _, _ := DeviceStateFor(out, serial); state.Ready() {
 		return nil
 	}
 
@@ -332,37 +337,29 @@ func EnsureConnected(cfg *Config, r Runner) error {
 
 	// adb connect can exit 0 and print a success message without the device
 	// actually reaching "device" (unauthorized, offline, stale transport).
-	// Verify the transition instead of trusting the text.
+	// Verify the transition instead of trusting the text. Verification is
+	// always for Serial(), the value commands address: accepting the connect
+	// target when it differs would report success for a transport that later
+	// `adb -s <serial>` calls cannot reach.
 	out, err = r.Devices()
 	if err != nil {
 		return fmt.Errorf("connected to %s but could not verify device state: %w", target, err)
 	}
-	state := deviceState(out, serial)
-	if state == "" && target != serial {
-		state = deviceState(out, target)
-	}
+	state, raw, _ := DeviceStateFor(out, serial)
 	switch state {
-	case "device":
+	case DeviceStateDevice:
 		return nil
-	case "":
+	case DeviceStateAbsent:
 		return fmt.Errorf("adb connect reported success but %s is not listed by `adb devices`", serial)
-	case "unauthorized":
+	case DeviceStateUnauthorized:
 		return fmt.Errorf("device %s is unauthorized: accept the USB debugging prompt on the TV, then run `tv adb connect`", serial)
-	case "offline":
+	case DeviceStateOffline:
 		return fmt.Errorf("device %s is offline: run `tv adb connect %s`", serial, target)
+	case DeviceStateNoPermissions:
+		return fmt.Errorf("device %s has no permissions: fix the host USB/udev access rules, then reconnect", serial)
 	default:
-		return fmt.Errorf("device %s is %q, expected \"device\"", serial, state)
+		return fmt.Errorf("device %s is %q, expected \"device\"", serial, raw)
 	}
-}
-
-// deviceState returns the state adb reports for serial, or "" if it is absent.
-func deviceState(out, serial string) string {
-	for _, d := range ParseDevices(out) {
-		if d.Serial == serial {
-			return d.State
-		}
-	}
-	return ""
 }
 
 // ConnectFailed reports whether adb connect output indicates a failure. adb
