@@ -29,10 +29,10 @@ func serveCmd(args []string) {
 	noOpen := fs.Bool("no-open", false, "Don't open browser")
 	parseFlags(fs, args)
 
-	cfg, err := config.Load()
-	if err != nil {
-		output.Warn(fmt.Errorf("%v (using defaults)", err))
-		cfg = &config.Config{TVIP: "192.168.2.3:5555"}
+	loaded := config.LoadWithSource()
+	cfg := loaded.Config
+	if loaded.Source == config.SourceInvalid {
+		output.Warn(fmt.Errorf("config file is unreadable: %v (using defaults; the file was left untouched)", loaded.Err()))
 	}
 
 	authToken := *token
